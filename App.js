@@ -38,7 +38,7 @@ import SettingsScreen from './src/screens/SettingsScreen';
 import CategoriesScreen from './src/screens/CategoriesScreen';
 import ProfileScreen    from './src/screens/ProfileScreen';
 
-const PRINCIPAL_IMAGE = require('./src/img/principal-image.png');
+const PRINCIPAL_IMAGE = require('./src/img/login.png');
 const LOGO_IMAGE      = require('./src/img/logo.png');
 
 
