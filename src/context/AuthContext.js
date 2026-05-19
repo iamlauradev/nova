@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api, getToken, setToken, clearToken } from '../services/api';
 
 const AuthContext  = createContext(null);
-const USER_CACHE_KEY = 'solo_finance_user_cache';
+const USER_CACHE_KEY = 'nova_user_cache';
 export const SHOW_ONBOARDING_KEY = '@nova_show_onboarding';
 
 const cacheUser   = (u) => SecureStore.setItemAsync(USER_CACHE_KEY, JSON.stringify(u)).catch(() => {});

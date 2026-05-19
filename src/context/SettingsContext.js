@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ─── Defaults ─────────────────────────────────────────────────────────────────
-const SETTINGS_KEY = '@solo_finance_settings';
+const SETTINGS_KEY = '@nova_settings';
 
 const DEFAULT_SETTINGS = {
   fontScale: 1.0,        // 0.85 | 1.0 | 1.15 | 1.3

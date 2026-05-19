@@ -5,8 +5,8 @@ import { api } from '../services/api';
 import { DEFAULT_CATEGORIES } from '../theme';
 import { schedulePaymentReminder, cancelPaymentReminder } from '../utils/notifications';
 
-const CUSTOM_CATS_KEY   = '@solo_finance_custom_cats';
-const HIDDEN_CATS_KEY   = '@solo_finance_hidden_cats';
+const CUSTOM_CATS_KEY   = '@nova_custom_cats';
+const HIDDEN_CATS_KEY   = '@nova_hidden_cats';
 const FinanceContext = createContext(null);
 
 export function FinanceProvider({ children, isAuthenticated }) {

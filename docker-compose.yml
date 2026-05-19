@@ -6,7 +6,7 @@ services:
     networks:
       - homelab_net
     volumes:
-      - ./solo-finance-data:/app/data
+      - ./nova-data:/app/data
     environment:
       # ⚠️  CAMBIA ESTO por una cadena random larga antes de arrancar
       # Puedes generar una con: openssl rand -base64 32

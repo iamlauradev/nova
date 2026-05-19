@@ -2,8 +2,8 @@ import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE_URL } from '../config';
 
-const TOKEN_KEY     = 'solo_finance_token'; // SecureStore no admite @ en la clave
-const LEGACY_KEY    = '@solo_finance_token'; // clave antigua en AsyncStorage
+const TOKEN_KEY     = 'nova_token'; // SecureStore no admite @ en la clave
+const LEGACY_KEY    = '@nova_token'; // clave antigua en AsyncStorage
 
 // Al leer el token: migra automáticamente desde AsyncStorage si existe
 export const getToken = async () => {

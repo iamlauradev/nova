@@ -6,9 +6,9 @@ backend/node_modules/
 .claude/
 
 # Base de datos (contiene datos de usuario, no va al repo)
-solo-finance-data/*.db
-solo-finance-data/*.db-shm
-solo-finance-data/*.db-wal
+nova-data/*.db
+nova-data/*.db-shm
+nova-data/*.db-wal
 
 # Expo / Metro
 .expo/
