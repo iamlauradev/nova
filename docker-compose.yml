@@ -1,0 +1,25 @@
+services:
+  nova-api:
+    build: ./backend
+    container_name: nova-api
+    restart: unless-stopped
+    networks:
+      - homelab_net
+    volumes:
+      - ./solo-finance-data:/app/data
+    environment:
+      # ⚠️  CAMBIA ESTO por una cadena random larga antes de arrancar
+      # Puedes generar una con: openssl rand -base64 32
+      - JWT_SECRET=CAMBIA_ESTO_POR_UNA_CLAVE_SEGURA
+      - PORT=3000
+      - NODE_ENV=production
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.nova.rule=Host(`finance.iamlaura.dev`)"
+      - "traefik.http.routers.nova.entrypoints=websecure"
+      - "traefik.http.routers.nova.tls.certresolver=letsencrypt"
+      - "traefik.http.services.nova.loadbalancer.server.port=3000"
+
+networks:
+  homelab_net:
+    external: true

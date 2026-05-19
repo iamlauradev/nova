@@ -1,0 +1,29 @@
+# Dependencias
+node_modules/
+backend/node_modules/
+
+# Claude Code
+.claude/
+
+# Base de datos (contiene datos de usuario, no va al repo)
+solo-finance-data/*.db
+solo-finance-data/*.db-shm
+solo-finance-data/*.db-wal
+
+# Expo / Metro
+.expo/
+dist/
+web-build/
+
+# Variables de entorno
+.env
+.env.local
+*.env
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
