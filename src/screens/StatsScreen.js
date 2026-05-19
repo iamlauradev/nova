@@ -71,6 +71,15 @@ export default function StatsScreen() {
   // Budget modal
   const [showBudgetModal, setShowBudgetModal] = useState(false);
   const [budgetForm, setBudgetForm] = useState({ categoryId: '', amount: '' });
+  const [budgetCatGroup, setBudgetCatGroup] = useState(null);
+  const budgetCatGroups = useMemo(() => {
+    const groups = {};
+    categories.expense.forEach(c => { const g = c.group || 'Otros'; if (!groups[g]) groups[g] = []; groups[g].push(c); });
+    return groups;
+  }, [categories.expense]);
+  const budgetGroupNames = useMemo(() => [...Object.keys(budgetCatGroups), 'ALL'], [budgetCatGroups]);
+  const budgetEffectiveGroup = budgetCatGroup ?? budgetGroupNames[0];
+  const budgetVisibleCats = budgetEffectiveGroup === 'ALL' ? categories.expense : (budgetCatGroups[budgetEffectiveGroup] || []);
 
   // Goal modal
   const [showGoalModal, setShowGoalModal] = useState(false);
@@ -229,6 +238,7 @@ export default function StatsScreen() {
     if (!amount || amount <= 0) return Alert.alert('Error', 'Introduce un importe válido');
     addBudget({ categoryId: budgetForm.categoryId, amount, period: 'monthly' });
     setBudgetForm({ categoryId: '', amount: '' });
+    setBudgetCatGroup(null);
     setShowBudgetModal(false);
   };
 
@@ -521,16 +531,31 @@ export default function StatsScreen() {
       </ScrollView>
 
       {/* ── Modal Presupuesto ── */}
-      <Modal visible={showBudgetModal} animationType="slide" transparent onRequestClose={() => setShowBudgetModal(false)}>
+      <Modal visible={showBudgetModal} animationType="slide" transparent onRequestClose={() => { setShowBudgetModal(false); setBudgetCatGroup(null); }}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalOverlay}>
           <View style={styles.modalSheet}>
             <View style={styles.handle} />
             <Text style={styles.modalTitle}>[ PRESUPUESTO MENSUAL ]</Text>
 
             <Text style={styles.fieldLabel}>CATEGORÍA</Text>
-            <ScrollView style={{ maxHeight: 160, marginBottom: 16 }} showsVerticalScrollIndicator={false}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+              <View style={{ flexDirection: 'row', gap: 6 }}>
+                {budgetGroupNames.map(g => (
+                  <TouchableOpacity
+                    key={g}
+                    style={[styles.chipBtn, budgetEffectiveGroup === g && { borderColor: COLORS.expense, backgroundColor: COLORS.expenseGlow }]}
+                    onPress={() => setBudgetCatGroup(g)}
+                  >
+                    <Text style={[styles.chipText, budgetEffectiveGroup === g && { color: '#fb7185' }]}>
+                      {g === 'ALL' ? 'Todos' : g}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+            <ScrollView style={{ maxHeight: 140, marginBottom: 16 }} showsVerticalScrollIndicator={false}>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                {categories.expense.map(c => (
+                {budgetVisibleCats.map(c => (
                   <TouchableOpacity
                     key={c.id}
                     style={[styles.chipBtn, budgetForm.categoryId === c.id && { backgroundColor: COLORS.expenseGlow, borderColor: COLORS.expense }]}
@@ -554,7 +579,7 @@ export default function StatsScreen() {
             />
 
             <View style={styles.modalActions}>
-              <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => setShowBudgetModal(false)}>
+              <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => { setShowBudgetModal(false); setBudgetCatGroup(null); }}>
                 <Text style={styles.cancelBtnText}>CANCELAR</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.modalBtn, styles.confirmBtn]} onPress={handleSaveBudget}>
