@@ -10,12 +10,12 @@ services:
     environment:
       # ⚠️  CAMBIA ESTO por una cadena random larga antes de arrancar
       # Puedes generar una con: openssl rand -base64 32
-      - JWT_SECRET=CAMBIA_ESTO_POR_UNA_CLAVE_SEGURA
+      - JWT_SECRET=LijhUI306RX59YjNOnSYkjtACj4wiao+iKIsPeRq1sE=
       - PORT=3000
       - NODE_ENV=production
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.nova.rule=Host(`finance.iamlaura.dev`)"
+      - "traefik.http.routers.nova.rule=Host(`nova.iamlaura.dev`)"
       - "traefik.http.routers.nova.entrypoints=websecure"
       - "traefik.http.routers.nova.tls.certresolver=letsencrypt"
       - "traefik.http.services.nova.loadbalancer.server.port=3000"
