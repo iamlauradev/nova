@@ -132,7 +132,8 @@ export default function RecurringScreen() {
     if (!amount || amount <= 0) return Alert.alert('Error', 'Introduce un importe válido (ej: 9,99)');
     const customMonths = form.frequency === 'custom' ? (parseInt(form.customMonths) || 1) : 0;
     if (editingRecurringId) {
-      updateRecurring({ id: editingRecurringId, ...form, amount, customMonths });
+      const existing = recurringItems.find(r => r.id === editingRecurringId);
+      updateRecurring({ ...existing, ...form, amount, customMonths });
     } else {
       addRecurring({ ...form, amount, customMonths });
       showToast('Compromiso fijo añadido ✓');
@@ -179,7 +180,8 @@ export default function RecurringScreen() {
     if (stForm.fromAccountId === stForm.toAccountId) return Alert.alert('Error', 'Las cuentas deben ser distintas');
     const day = parseInt(stForm.dayOfMonth) || 1;
     if (editingStId) {
-      updateSavingsTransfer({ id: editingStId, ...stForm, amount, dayOfMonth: Math.min(30, Math.max(1, day)) });
+      const existing = savingsTransfers.find(s => s.id === editingStId);
+      updateSavingsTransfer({ ...existing, ...stForm, amount, dayOfMonth: Math.min(30, Math.max(1, day)) });
     } else {
       addSavingsTransfer({ ...stForm, amount, dayOfMonth: Math.min(30, Math.max(1, day)) });
     }
@@ -219,8 +221,9 @@ export default function RecurringScreen() {
       : parseFloat((total / months).toFixed(2));
     const day = parseInt(fiForm.dayOfMonth) || 1;
     if (editingFiId) {
+      const existing = financedItems.find(f => f.id === editingFiId);
       updateFinancedItem({
-        id: editingFiId,
+        ...existing,
         name: fiForm.name.trim(),
         totalAmount: total,
         months,
