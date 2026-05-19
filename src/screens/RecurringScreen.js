@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { notifySuccess, notifyWarning } from '../utils/haptics';
 import { useToast } from '../context/ToastContext';
 import { useCelebration } from '../context/CelebrationContext';
@@ -88,7 +88,7 @@ export default function RecurringScreen() {
     addRecurring, updateRecurring, deleteRecurring, addCategory,
     savingsTransfers, addSavingsTransfer, updateSavingsTransfer, deleteSavingsTransfer,
     savingsAccounts,
-    financedItems, addFinancedItem, deleteFinancedItem, applyFinancedItem,
+    financedItems, addFinancedItem, updateFinancedItem, deleteFinancedItem, applyFinancedItem,
     debts, addDebt, updateDebt, deleteDebt, payDebt,
     loans, addLoan, updateLoan, deleteLoan, collectLoan,
   } = useFinance();
@@ -119,6 +119,7 @@ export default function RecurringScreen() {
   const [editingFiId, setEditingFiId] = useState(null);
   const [editingDebtId, setEditingDebtId] = useState(null);
   const [editingLoanId, setEditingLoanId] = useState(null);
+  const [catGroupFilter, setCatGroupFilter] = useState(null);
 
   const incomeItems = recurringItems.filter(r => r.type === 'income');
   const expenseItems = recurringItems.filter(r => r.type === 'expense');
@@ -141,6 +142,7 @@ export default function RecurringScreen() {
     notifySuccess();
     setForm(BLANK);
     setEditingRecurringId(null);
+    setCatGroupFilter(null);
     setShowModal(false);
   };
 
@@ -350,8 +352,7 @@ export default function RecurringScreen() {
     });
     showToast('Pago registrado ✓');
     notifySuccess();
-    // Check if debt is fully paid
-    const paidSoFar = (payTarget.payments || []).reduce((s, p) => s + p.amount, 0) + amount;
+    const paidSoFar = (payTarget.paidAmount || 0) + amount;
     if (paidSoFar >= payTarget.totalAmount) {
       celebrate('¡Deuda saldada!', `"${payTarget.name}" está completamente pagada 🏆`);
     }
@@ -453,6 +454,14 @@ export default function RecurringScreen() {
   const activeLoans = (loans || []).filter(l => l.active === 1 || l.active === true);
 
   const currentCats = form.type === 'income' ? categories.income : categories.expense;
+  const catGroups = useMemo(() => {
+    const groups = {};
+    currentCats.forEach(c => { const g = c.group || 'Otros'; if (!groups[g]) groups[g] = []; groups[g].push(c); });
+    return groups;
+  }, [currentCats]);
+  const allGroupNames = useMemo(() => [...Object.keys(catGroups), 'ALL'], [catGroups]);
+  const effectiveGroup = catGroupFilter ?? allGroupNames[0];
+  const visibleCats = effectiveGroup === 'ALL' ? currentCats : (catGroups[effectiveGroup] || []);
   const nonSavingsAccounts = accounts.filter(a => a.type !== 'savings');
   const activeFinancedItems = (financedItems || []).filter(f => f.active !== 0);
 
@@ -673,14 +682,14 @@ export default function RecurringScreen() {
             <View style={styles.typeToggle}>
               <TouchableOpacity
                 style={[styles.typeBtn, form.type === 'income' && { backgroundColor: COLORS.incomeGlow, borderColor: COLORS.income }]}
-                onPress={() => setForm(p => ({ ...p, type: 'income', category: '' }))}
+                onPress={() => { setForm(p => ({ ...p, type: 'income', category: '' })); setCatGroupFilter(null); }}
               >
                 <Ionicons name="arrow-up-circle" size={16} color={form.type === 'income' ? COLORS.income : COLORS.textDim} />
                 <Text style={[styles.typeBtnText, form.type === 'income' && { color: COLORS.income }]}>INGRESO</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.typeBtn, form.type === 'expense' && { backgroundColor: COLORS.expenseGlow, borderColor: COLORS.expense }]}
-                onPress={() => setForm(p => ({ ...p, type: 'expense', category: '' }))}
+                onPress={() => { setForm(p => ({ ...p, type: 'expense', category: '' })); setCatGroupFilter(null); }}
               >
                 <Ionicons name="arrow-down-circle" size={16} color={form.type === 'expense' ? COLORS.expense : COLORS.textDim} />
                 <Text style={[styles.typeBtnText, form.type === 'expense' && { color: COLORS.expense }]}>GASTO</Text>
@@ -777,8 +786,23 @@ export default function RecurringScreen() {
                 <Text style={{ color: COLORS.primaryLight, fontSize: 10, fontWeight: '700', letterSpacing: 1 }}>NUEVA</Text>
               </TouchableOpacity>
             </View>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
+              <View style={{ flexDirection: 'row', gap: 6 }}>
+                {allGroupNames.map(g => (
+                  <TouchableOpacity
+                    key={g}
+                    style={[styles.chipBtn, effectiveGroup === g && { borderColor: COLORS.primary, backgroundColor: COLORS.primaryGlow }]}
+                    onPress={() => setCatGroupFilter(g)}
+                  >
+                    <Text style={[styles.chipText, effectiveGroup === g && { color: COLORS.primaryLight }]}>
+                      {g === 'ALL' ? 'Todos' : g}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
             <View style={styles.catGrid}>
-              {currentCats.map(c => (
+              {visibleCats.map(c => (
                 <TouchableOpacity
                   key={c.id}
                   style={[
@@ -797,7 +821,7 @@ export default function RecurringScreen() {
             </View>
 
             <View style={[styles.modalActions, { marginTop: 24, marginBottom: 48 }]}>
-              <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => { setShowModal(false); setForm(BLANK); setEditingRecurringId(null); }}>
+              <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => { setShowModal(false); setForm(BLANK); setEditingRecurringId(null); setCatGroupFilter(null); }}>
                 <Text style={styles.cancelBtnText}>CANCELAR</Text>
               </TouchableOpacity>
               <TouchableOpacity style={[styles.modalBtn, styles.confirmBtn]} onPress={handleSaveRecurring}>
