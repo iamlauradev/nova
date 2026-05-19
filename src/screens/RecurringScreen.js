@@ -89,8 +89,8 @@ export default function RecurringScreen() {
     savingsTransfers, addSavingsTransfer, updateSavingsTransfer, deleteSavingsTransfer,
     savingsAccounts,
     financedItems, addFinancedItem, deleteFinancedItem, applyFinancedItem,
-    debts, addDebt, deleteDebt, payDebt,
-    loans, addLoan, deleteLoan, collectLoan,
+    debts, addDebt, updateDebt, deleteDebt, payDebt,
+    loans, addLoan, updateLoan, deleteLoan, collectLoan,
   } = useFinance();
 
   const { celebrate } = useCelebration();
@@ -114,6 +114,11 @@ export default function RecurringScreen() {
   const [collectForm, setCollectForm] = useState(BLANK_COLLECT);
   const [payTarget, setPayTarget] = useState(null);
   const [payForm, setPayForm] = useState(BLANK_PAY);
+  const [editingRecurringId, setEditingRecurringId] = useState(null);
+  const [editingStId, setEditingStId] = useState(null);
+  const [editingFiId, setEditingFiId] = useState(null);
+  const [editingDebtId, setEditingDebtId] = useState(null);
+  const [editingLoanId, setEditingLoanId] = useState(null);
 
   const incomeItems = recurringItems.filter(r => r.type === 'income');
   const expenseItems = recurringItems.filter(r => r.type === 'expense');
@@ -121,16 +126,37 @@ export default function RecurringScreen() {
   const totalFixedIncome = incomeItems.filter(r => r.active).reduce((s, r) => s + r.amount, 0);
   const totalFixedExpense = expenseItems.filter(r => r.active).reduce((s, r) => s + r.amount, 0);
 
-  const handleAdd = () => {
+  const handleSaveRecurring = () => {
     if (!form.name.trim()) return Alert.alert('Error', 'Introduce un nombre');
     const amount = parseAmount(form.amount);
     if (!amount || amount <= 0) return Alert.alert('Error', 'Introduce un importe válido (ej: 9,99)');
     const customMonths = form.frequency === 'custom' ? (parseInt(form.customMonths) || 1) : 0;
-    addRecurring({ ...form, amount, customMonths });
+    if (editingRecurringId) {
+      updateRecurring({ id: editingRecurringId, ...form, amount, customMonths });
+    } else {
+      addRecurring({ ...form, amount, customMonths });
+      showToast('Compromiso fijo añadido ✓');
+    }
     notifySuccess();
-    showToast('Compromiso fijo añadido ✓');
     setForm(BLANK);
+    setEditingRecurringId(null);
     setShowModal(false);
+  };
+
+  const openEditRecurring = (item) => {
+    setEditingRecurringId(item.id);
+    setForm({
+      name: item.name,
+      type: item.type,
+      amount: String(item.amount),
+      category: item.category || '',
+      accountId: item.accountId || '',
+      frequency: item.frequency || 'monthly',
+      customMonths: item.customMonths ? String(item.customMonths) : '',
+      dayOfMonth: String(item.dayOfMonth || 1),
+      notes: item.notes || '',
+    });
+    setShowModal(true);
   };
 
   const confirmDelete = (item) => {
@@ -144,7 +170,7 @@ export default function RecurringScreen() {
     updateRecurring({ ...item, active: !item.active });
   };
 
-  const handleAddSavingsTransfer = () => {
+  const handleSaveSt = () => {
     if (!stForm.name.trim()) return Alert.alert('Error', 'Introduce un nombre');
     const amount = parseAmount(stForm.amount);
     if (!amount || amount <= 0) return Alert.alert('Error', 'Introduce un importe válido');
@@ -152,9 +178,26 @@ export default function RecurringScreen() {
     if (!stForm.toAccountId) return Alert.alert('Error', 'Selecciona la cuenta de ahorro destino');
     if (stForm.fromAccountId === stForm.toAccountId) return Alert.alert('Error', 'Las cuentas deben ser distintas');
     const day = parseInt(stForm.dayOfMonth) || 1;
-    addSavingsTransfer({ ...stForm, amount, dayOfMonth: Math.min(30, Math.max(1, day)) });
+    if (editingStId) {
+      updateSavingsTransfer({ id: editingStId, ...stForm, amount, dayOfMonth: Math.min(30, Math.max(1, day)) });
+    } else {
+      addSavingsTransfer({ ...stForm, amount, dayOfMonth: Math.min(30, Math.max(1, day)) });
+    }
+    setEditingStId(null);
     setStForm(BLANK_ST);
     setShowStModal(false);
+  };
+
+  const openEditSt = (item) => {
+    setEditingStId(item.id);
+    setStForm({
+      name: item.name,
+      fromAccountId: item.fromAccountId,
+      toAccountId: item.toAccountId,
+      amount: String(item.amount),
+      dayOfMonth: String(item.dayOfMonth || 1),
+    });
+    setShowStModal(true);
   };
 
   const confirmDeleteSt = (item) => {
@@ -164,7 +207,7 @@ export default function RecurringScreen() {
     ]);
   };
 
-  const handleAddFinancedItem = () => {
+  const handleSaveFi = () => {
     if (!fiForm.name.trim()) return Alert.alert('Error', 'Introduce un nombre');
     const total = parseAmount(fiForm.totalAmount);
     if (!total || total <= 0) return Alert.alert('Error', 'Introduce el importe total');
@@ -175,18 +218,44 @@ export default function RecurringScreen() {
       ? parseAmount(fiForm.monthlyAmount)
       : parseFloat((total / months).toFixed(2));
     const day = parseInt(fiForm.dayOfMonth) || 1;
-    addFinancedItem({
-      name: fiForm.name.trim(),
-      totalAmount: total,
-      months,
-      monthlyAmount,
-      accountId: fiForm.accountId,
-      dayOfMonth: Math.min(30, Math.max(1, day)),
-      startDate: new Date().toISOString().split('T')[0],
-    });
+    if (editingFiId) {
+      updateFinancedItem({
+        id: editingFiId,
+        name: fiForm.name.trim(),
+        totalAmount: total,
+        months,
+        monthlyAmount,
+        accountId: fiForm.accountId,
+        dayOfMonth: Math.min(30, Math.max(1, day)),
+      });
+    } else {
+      addFinancedItem({
+        name: fiForm.name.trim(),
+        totalAmount: total,
+        months,
+        monthlyAmount,
+        accountId: fiForm.accountId,
+        dayOfMonth: Math.min(30, Math.max(1, day)),
+        startDate: new Date().toISOString().split('T')[0],
+      });
+    }
     notifySuccess();
+    setEditingFiId(null);
     setFiForm(BLANK_FI);
     setShowFiModal(false);
+  };
+
+  const openEditFi = (item) => {
+    setEditingFiId(item.id);
+    setFiForm({
+      name: item.name,
+      totalAmount: String(item.totalAmount),
+      months: String(item.months),
+      monthlyAmount: String(item.monthlyAmount),
+      accountId: item.accountId,
+      dayOfMonth: String(item.dayOfMonth || 1),
+    });
+    setShowFiModal(true);
   };
 
   const confirmApplyFi = (item) => {
@@ -226,11 +295,11 @@ export default function RecurringScreen() {
     });
   };
 
-  const handleAddDebt = () => {
+  const handleSaveDebt = () => {
     if (!debtForm.name.trim()) return Alert.alert('Error', 'Introduce un nombre para la deuda');
     const total = parseAmount(debtForm.totalAmount);
     if (!total || total <= 0) return Alert.alert('Error', 'Introduce el importe total de la deuda');
-    addDebt({
+    const payload = {
       name: debtForm.name.trim(),
       totalAmount: total,
       icon: debtForm.icon,
@@ -238,10 +307,30 @@ export default function RecurringScreen() {
       notes: debtForm.notes,
       startDate: debtForm.startDate || new Date().toISOString().split('T')[0],
       targetDate: debtForm.targetDate,
-    });
+    };
+    if (editingDebtId) {
+      updateDebt(editingDebtId, payload);
+    } else {
+      addDebt(payload);
+    }
     notifySuccess();
+    setEditingDebtId(null);
     setDebtForm(BLANK_DEBT);
     setShowDebtModal(false);
+  };
+
+  const openEditDebt = (item) => {
+    setEditingDebtId(item.id);
+    setDebtForm({
+      name: item.name,
+      totalAmount: String(item.totalAmount),
+      icon: item.icon || '🏚️',
+      color: item.color || '#7c3aed',
+      notes: item.notes || '',
+      startDate: item.startDate || '',
+      targetDate: item.targetDate || '',
+    });
+    setShowDebtModal(true);
   };
 
   const handlePayDebt = () => {
@@ -283,11 +372,11 @@ export default function RecurringScreen() {
 
   const activeDebts = (debts || []).filter(d => d.active === 1 || d.active === true);
 
-  const handleAddLoan = () => {
+  const handleSaveLoan = () => {
     if (!loanForm.name.trim()) return Alert.alert('Error', 'Introduce un nombre para el préstamo');
     const total = parseAmount(loanForm.totalAmount);
     if (!total || total <= 0) return Alert.alert('Error', 'Introduce el importe total prestado');
-    addLoan({
+    const payload = {
       name: loanForm.name.trim(),
       totalAmount: total,
       icon: loanForm.icon,
@@ -295,9 +384,30 @@ export default function RecurringScreen() {
       notes: loanForm.notes,
       startDate: loanForm.startDate || new Date().toISOString().split('T')[0],
       targetDate: loanForm.targetDate,
-    });
+    };
+    if (editingLoanId) {
+      updateLoan(editingLoanId, payload);
+    } else {
+      addLoan(payload);
+    }
+    notifySuccess();
+    setEditingLoanId(null);
     setLoanForm(BLANK_LOAN);
     setShowLoanModal(false);
+  };
+
+  const openEditLoan = (item) => {
+    setEditingLoanId(item.id);
+    setLoanForm({
+      name: item.name,
+      totalAmount: String(item.totalAmount),
+      icon: item.icon || '🤝',
+      color: item.color || '#10b981',
+      notes: item.notes || '',
+      startDate: item.startDate || '',
+      targetDate: item.targetDate || '',
+    });
+    setShowLoanModal(true);
   };
 
   const handleCollect = () => {
@@ -387,7 +497,7 @@ export default function RecurringScreen() {
                 <>
                   <Text style={styles.groupLabel}>INGRESOS FIJOS</Text>
                   {incomeItems.map(item => (
-                    <RecurringRow key={item.id} item={item} accounts={accounts} categories={categories} onDelete={confirmDelete} onToggle={toggleActive} />
+                    <RecurringRow key={item.id} item={item} accounts={accounts} categories={categories} onDelete={confirmDelete} onToggle={toggleActive} onEdit={openEditRecurring} />
                   ))}
                 </>
               )}
@@ -395,7 +505,7 @@ export default function RecurringScreen() {
                 <>
                   <Text style={styles.groupLabel}>GASTOS FIJOS</Text>
                   {expenseItems.map(item => (
-                    <RecurringRow key={item.id} item={item} accounts={accounts} categories={categories} onDelete={confirmDelete} onToggle={toggleActive} />
+                    <RecurringRow key={item.id} item={item} accounts={accounts} categories={categories} onDelete={confirmDelete} onToggle={toggleActive} onEdit={openEditRecurring} />
                   ))}
                 </>
               )}
@@ -433,6 +543,7 @@ export default function RecurringScreen() {
                 accounts={accounts}
                 onApply={() => confirmApplyFi(item)}
                 onDelete={() => confirmDeleteFi(item)}
+                onEdit={() => openEditFi(item)}
               />
             ))
           )}
@@ -467,6 +578,7 @@ export default function RecurringScreen() {
                 item={item}
                 onPay={() => openPayModal(item)}
                 onDelete={() => confirmDeleteDebt(item)}
+                onEdit={() => openEditDebt(item)}
               />
             ))
           )}
@@ -501,6 +613,7 @@ export default function RecurringScreen() {
                 item={item}
                 onCollect={() => openCollectModal(item)}
                 onDelete={() => confirmDeleteLoan(item)}
+                onEdit={() => openEditLoan(item)}
               />
             ))
           )}
@@ -540,6 +653,7 @@ export default function RecurringScreen() {
                 accounts={accounts}
                 onDelete={confirmDeleteSt}
                 onToggle={(it) => updateSavingsTransfer({ ...it, active: !it.active })}
+                onEdit={openEditSt}
               />
             ))
           )}
@@ -551,7 +665,7 @@ export default function RecurringScreen() {
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalOverlay}>
           <ScrollView style={styles.modalSheet} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             <View style={styles.handle} />
-            <Text style={styles.modalTitle}>[ NUEVO FIJO ]</Text>
+            <Text style={styles.modalTitle}>{editingRecurringId ? '[ EDITAR FIJO ]' : '[ NUEVO FIJO ]'}</Text>
 
             <View style={styles.typeToggle}>
               <TouchableOpacity
@@ -680,10 +794,10 @@ export default function RecurringScreen() {
             </View>
 
             <View style={[styles.modalActions, { marginTop: 24, marginBottom: 48 }]}>
-              <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => { setShowModal(false); setForm(BLANK); }}>
+              <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => { setShowModal(false); setForm(BLANK); setEditingRecurringId(null); }}>
                 <Text style={styles.cancelBtnText}>CANCELAR</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalBtn, styles.confirmBtn]} onPress={handleAdd}>
+              <TouchableOpacity style={[styles.modalBtn, styles.confirmBtn]} onPress={handleSaveRecurring}>
                 <LinearGradient colors={[COLORS.primary, COLORS.primaryDark]} style={StyleSheet.absoluteFill} />
                 <Text style={styles.confirmBtnText}>GUARDAR</Text>
               </TouchableOpacity>
@@ -697,7 +811,7 @@ export default function RecurringScreen() {
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalOverlay}>
           <ScrollView style={styles.modalSheet} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             <View style={styles.handle} />
-            <Text style={[styles.modalTitle, { color: COLORS.accent }]}>[ PAGO APLAZADO ]</Text>
+            <Text style={[styles.modalTitle, { color: COLORS.accent }]}>{editingFiId ? '[ EDITAR APLAZADO ]' : '[ PAGO APLAZADO ]'}</Text>
 
             <Text style={styles.fieldLabel}>NOMBRE</Text>
             <TextInput
@@ -764,10 +878,10 @@ export default function RecurringScreen() {
             </ScrollView>
 
             <View style={[styles.modalActions, { marginBottom: 48 }]}>
-              <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => { setShowFiModal(false); setFiForm(BLANK_FI); }}>
+              <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => { setShowFiModal(false); setFiForm(BLANK_FI); setEditingFiId(null); }}>
                 <Text style={styles.cancelBtnText}>CANCELAR</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalBtn, styles.confirmBtn]} onPress={handleAddFinancedItem}>
+              <TouchableOpacity style={[styles.modalBtn, styles.confirmBtn]} onPress={handleSaveFi}>
                 <LinearGradient colors={[COLORS.accent, COLORS.primary]} style={StyleSheet.absoluteFill} />
                 <Text style={styles.confirmBtnText}>GUARDAR</Text>
               </TouchableOpacity>
@@ -781,7 +895,7 @@ export default function RecurringScreen() {
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalOverlay}>
           <ScrollView style={styles.modalSheet} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             <View style={styles.handle} />
-            <Text style={[styles.modalTitle, { color: COLORS.gold }]}>[ AHORRO AUTOMÁTICO ]</Text>
+            <Text style={[styles.modalTitle, { color: COLORS.gold }]}>{editingStId ? '[ EDITAR AHORRO ]' : '[ AHORRO AUTOMÁTICO ]'}</Text>
 
             <Text style={styles.fieldLabel}>NOMBRE</Text>
             <TextInput
@@ -843,10 +957,10 @@ export default function RecurringScreen() {
             </ScrollView>
 
             <View style={[styles.modalActions, { marginTop: 8, marginBottom: 48 }]}>
-              <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => { setShowStModal(false); setStForm(BLANK_ST); }}>
+              <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => { setShowStModal(false); setStForm(BLANK_ST); setEditingStId(null); }}>
                 <Text style={styles.cancelBtnText}>CANCELAR</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalBtn, styles.confirmBtn]} onPress={handleAddSavingsTransfer}>
+              <TouchableOpacity style={[styles.modalBtn, styles.confirmBtn]} onPress={handleSaveSt}>
                 <LinearGradient colors={[COLORS.gold, '#b45309']} style={StyleSheet.absoluteFill} />
                 <Text style={styles.confirmBtnText}>GUARDAR</Text>
               </TouchableOpacity>
@@ -860,7 +974,7 @@ export default function RecurringScreen() {
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalOverlay}>
           <ScrollView style={styles.modalSheet} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             <View style={styles.handle} />
-            <Text style={[styles.modalTitle, { color: '#f43f5e' }]}>[ NUEVA DEUDA ]</Text>
+            <Text style={[styles.modalTitle, { color: '#f43f5e' }]}>{editingDebtId ? '[ EDITAR DEUDA ]' : '[ NUEVA DEUDA ]'}</Text>
 
             <Text style={styles.fieldLabel}>NOMBRE</Text>
             <TextInput
@@ -915,10 +1029,10 @@ export default function RecurringScreen() {
             />
 
             <View style={[styles.modalActions, { marginTop: 8, marginBottom: 48 }]}>
-              <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => { setShowDebtModal(false); setDebtForm(BLANK_DEBT); }}>
+              <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => { setShowDebtModal(false); setDebtForm(BLANK_DEBT); setEditingDebtId(null); }}>
                 <Text style={styles.cancelBtnText}>CANCELAR</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalBtn, styles.confirmBtn]} onPress={handleAddDebt}>
+              <TouchableOpacity style={[styles.modalBtn, styles.confirmBtn]} onPress={handleSaveDebt}>
                 <LinearGradient colors={['#f43f5e', '#be123c']} style={StyleSheet.absoluteFill} />
                 <Text style={styles.confirmBtnText}>GUARDAR</Text>
               </TouchableOpacity>
@@ -997,7 +1111,7 @@ export default function RecurringScreen() {
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalOverlay}>
           <ScrollView style={styles.modalSheet} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             <View style={styles.handle} />
-            <Text style={[styles.modalTitle, { color: '#10b981' }]}>[ NUEVO PRÉSTAMO ]</Text>
+            <Text style={[styles.modalTitle, { color: '#10b981' }]}>{editingLoanId ? '[ EDITAR PRÉSTAMO ]' : '[ NUEVO PRÉSTAMO ]'}</Text>
 
             <Text style={styles.fieldLabel}>NOMBRE / PERSONA</Text>
             <TextInput
@@ -1052,10 +1166,10 @@ export default function RecurringScreen() {
             />
 
             <View style={[styles.modalActions, { marginTop: 8, marginBottom: 48 }]}>
-              <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => { setShowLoanModal(false); setLoanForm(BLANK_LOAN); }}>
+              <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => { setShowLoanModal(false); setLoanForm(BLANK_LOAN); setEditingLoanId(null); }}>
                 <Text style={styles.cancelBtnText}>CANCELAR</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalBtn, styles.confirmBtn]} onPress={handleAddLoan}>
+              <TouchableOpacity style={[styles.modalBtn, styles.confirmBtn]} onPress={handleSaveLoan}>
                 <LinearGradient colors={['#10b981', '#059669']} style={StyleSheet.absoluteFill} />
                 <Text style={styles.confirmBtnText}>GUARDAR</Text>
               </TouchableOpacity>
@@ -1172,7 +1286,7 @@ export default function RecurringScreen() {
 }
 
 
-function LoanRow({ item, onCollect, onDelete }) {
+function LoanRow({ item, onCollect, onDelete, onEdit }) {
   const total = item.totalAmount || 0;
   const collected = item.collectedAmount || 0;
   const progress = total > 0 ? Math.min(collected / total, 1) : 0;
@@ -1220,6 +1334,9 @@ function LoanRow({ item, onCollect, onDelete }) {
               <Text style={[styles.applyBtnText, { color: '#10b981' }]}>COBRAR</Text>
             </TouchableOpacity>
           )}
+          <TouchableOpacity onPress={onEdit}>
+            <Ionicons name="pencil-outline" size={14} color={COLORS.textDim} />
+          </TouchableOpacity>
           <TouchableOpacity onPress={onDelete}>
             <Ionicons name="trash-outline" size={14} color={COLORS.textDim} />
           </TouchableOpacity>
@@ -1229,7 +1346,7 @@ function LoanRow({ item, onCollect, onDelete }) {
   );
 }
 
-function DebtRow({ item, onPay, onDelete }) {
+function DebtRow({ item, onPay, onDelete, onEdit }) {
   const total = item.totalAmount || 0;
   const paid = item.paidAmount || 0;
   const progress = total > 0 ? Math.min(paid / total, 1) : 0;
@@ -1278,6 +1395,9 @@ function DebtRow({ item, onPay, onDelete }) {
               <Text style={[styles.applyBtnText, { color: '#f43f5e' }]}>PAGAR</Text>
             </TouchableOpacity>
           )}
+          <TouchableOpacity onPress={onEdit}>
+            <Ionicons name="pencil-outline" size={14} color={COLORS.textDim} />
+          </TouchableOpacity>
           <TouchableOpacity onPress={onDelete}>
             <Ionicons name="trash-outline" size={14} color={COLORS.textDim} />
           </TouchableOpacity>
@@ -1287,7 +1407,7 @@ function DebtRow({ item, onPay, onDelete }) {
   );
 }
 
-function FinancedItemRow({ item, accounts, onApply, onDelete }) {
+function FinancedItemRow({ item, accounts, onApply, onDelete, onEdit }) {
   const account = accounts.find(a => a.id === item.accountId);
   const progress = item.months > 0 ? item.appliedCount / item.months : 0;
   const remaining = item.months - item.appliedCount;
@@ -1341,6 +1461,9 @@ function FinancedItemRow({ item, accounts, onApply, onDelete }) {
               <Text style={styles.applyBtnText}>APLICAR</Text>
             </TouchableOpacity>
           )}
+          <TouchableOpacity onPress={onEdit}>
+            <Ionicons name="pencil-outline" size={14} color={COLORS.textDim} />
+          </TouchableOpacity>
           <TouchableOpacity onPress={onDelete}>
             <Ionicons name="trash-outline" size={14} color={COLORS.textDim} />
           </TouchableOpacity>
@@ -1350,7 +1473,7 @@ function FinancedItemRow({ item, accounts, onApply, onDelete }) {
   );
 }
 
-function SavingsTransferRow({ item, accounts, onDelete, onToggle }) {
+function SavingsTransferRow({ item, accounts, onDelete, onToggle, onEdit }) {
   const fromAcc = accounts.find(a => a.id === item.fromAccountId);
   const toAcc = accounts.find(a => a.id === item.toAccountId);
 
@@ -1378,6 +1501,9 @@ function SavingsTransferRow({ item, accounts, onDelete, onToggle }) {
               thumbColor={item.active ? COLORS.gold : COLORS.textDim}
               style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
             />
+            <TouchableOpacity onPress={() => onEdit(item)}>
+              <Ionicons name="pencil-outline" size={14} color={COLORS.textDim} />
+            </TouchableOpacity>
             <TouchableOpacity onPress={() => onDelete(item)}>
               <Ionicons name="trash-outline" size={14} color={COLORS.textDim} />
             </TouchableOpacity>
@@ -1388,7 +1514,7 @@ function SavingsTransferRow({ item, accounts, onDelete, onToggle }) {
   );
 }
 
-function RecurringRow({ item, accounts, categories, onDelete, onToggle }) {
+function RecurringRow({ item, accounts, categories, onDelete, onToggle, onEdit }) {
   const isIncome = item.type === 'income';
   const cats = isIncome ? categories.income : categories.expense;
   const cat = cats.find(c => c.id === item.category);
@@ -1427,6 +1553,9 @@ function RecurringRow({ item, accounts, categories, onDelete, onToggle }) {
               thumbColor={item.active ? COLORS.primaryLight : COLORS.textDim}
               style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
             />
+            <TouchableOpacity onPress={() => onEdit(item)}>
+              <Ionicons name="pencil-outline" size={14} color={COLORS.textDim} />
+            </TouchableOpacity>
             <TouchableOpacity onPress={() => onDelete(item)}>
               <Ionicons name="trash-outline" size={14} color={COLORS.textDim} />
             </TouchableOpacity>

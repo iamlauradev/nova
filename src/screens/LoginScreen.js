@@ -18,7 +18,7 @@ import { useAuth } from '../context/AuthContext';
 import { notifySuccess, notifyError, tapLight } from '../utils/haptics';
 import { COLORS } from '../theme';
 
-const PRINCIPAL_IMAGE = require('../img/principal-image.png');
+const PRINCIPAL_IMAGE = require('../img/login.png');
 
 export default function LoginScreen() {
   const { login, register } = useAuth();
