@@ -120,6 +120,12 @@ export default function RecurringScreen() {
   const [editingDebtId, setEditingDebtId] = useState(null);
   const [editingLoanId, setEditingLoanId] = useState(null);
   const [catGroupFilter, setCatGroupFilter] = useState(null);
+  const [showAddDebtAmountModal, setShowAddDebtAmountModal] = useState(false);
+  const [addDebtAmountTarget, setAddDebtAmountTarget] = useState(null);
+  const [addDebtAmountValue, setAddDebtAmountValue] = useState('');
+  const [showAddLoanAmountModal, setShowAddLoanAmountModal] = useState(false);
+  const [addLoanAmountTarget, setAddLoanAmountTarget] = useState(null);
+  const [addLoanAmountValue, setAddLoanAmountValue] = useState('');
 
   const incomeItems = recurringItems.filter(r => r.type === 'income');
   const expenseItems = recurringItems.filter(r => r.type === 'expense');
@@ -444,6 +450,40 @@ export default function RecurringScreen() {
     setShowCollectModal(true);
   };
 
+  const openAddDebtAmountModal = (debt) => {
+    setAddDebtAmountTarget(debt);
+    setAddDebtAmountValue('');
+    setShowAddDebtAmountModal(true);
+  };
+
+  const handleAddDebtAmount = () => {
+    const amount = parseAmount(addDebtAmountValue);
+    if (!amount || amount <= 0) return Alert.alert('Error', 'Introduce un importe válido');
+    updateDebt(addDebtAmountTarget.id, { totalAmount: addDebtAmountTarget.totalAmount + amount });
+    notifySuccess();
+    showToast('Deuda ampliada ✓');
+    setAddDebtAmountValue('');
+    setAddDebtAmountTarget(null);
+    setShowAddDebtAmountModal(false);
+  };
+
+  const openAddLoanAmountModal = (loan) => {
+    setAddLoanAmountTarget(loan);
+    setAddLoanAmountValue('');
+    setShowAddLoanAmountModal(true);
+  };
+
+  const handleAddLoanAmount = () => {
+    const amount = parseAmount(addLoanAmountValue);
+    if (!amount || amount <= 0) return Alert.alert('Error', 'Introduce un importe válido');
+    updateLoan(addLoanAmountTarget.id, { totalAmount: addLoanAmountTarget.totalAmount + amount });
+    notifySuccess();
+    showToast('Préstamo ampliado ✓');
+    setAddLoanAmountValue('');
+    setAddLoanAmountTarget(null);
+    setShowAddLoanAmountModal(false);
+  };
+
   const confirmDeleteLoan = (item) => {
     Alert.alert('¿Eliminar préstamo?', `Se eliminará "${item.name}". Los cobros ya registrados permanecerán.`, [
       { text: 'Cancelar', style: 'cancel' },
@@ -591,6 +631,7 @@ export default function RecurringScreen() {
                 onPay={() => openPayModal(item)}
                 onDelete={() => confirmDeleteDebt(item)}
                 onEdit={() => openEditDebt(item)}
+                onAddAmount={() => openAddDebtAmountModal(item)}
               />
             ))
           )}
@@ -626,6 +667,7 @@ export default function RecurringScreen() {
                 onCollect={() => openCollectModal(item)}
                 onDelete={() => confirmDeleteLoan(item)}
                 onEdit={() => openEditLoan(item)}
+                onAddAmount={() => openAddLoanAmountModal(item)}
               />
             ))
           )}
@@ -1270,6 +1312,96 @@ export default function RecurringScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
+      {/* Modal Añadir al total de Deuda */}
+      <Modal visible={showAddDebtAmountModal} animationType="slide" transparent onRequestClose={() => setShowAddDebtAmountModal(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.handle} />
+            <Text style={[styles.modalTitle, { color: '#f43f5e' }]}>[ AÑADIR AL TOTAL ]</Text>
+            {addDebtAmountTarget && (
+              <View style={styles.debtPayInfo}>
+                <Text style={{ fontSize: 24 }}>{addDebtAmountTarget.icon}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.debtPayName}>{addDebtAmountTarget.name}</Text>
+                  <Text style={styles.debtPayMeta}>
+                    Total actual: {formatCurrency(addDebtAmountTarget.totalAmount)}
+                  </Text>
+                </View>
+              </View>
+            )}
+            <Text style={styles.fieldLabel}>IMPORTE A AÑADIR (€)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="0,00"
+              placeholderTextColor={COLORS.textDim}
+              keyboardType="decimal-pad"
+              value={addDebtAmountValue}
+              onChangeText={setAddDebtAmountValue}
+              autoFocus
+            />
+            {addDebtAmountTarget && addDebtAmountValue ? (
+              <Text style={{ color: COLORS.textDim, fontSize: 12, marginBottom: 16, marginTop: -8 }}>
+                Nuevo total: {formatCurrency(addDebtAmountTarget.totalAmount + (parseAmount(addDebtAmountValue) || 0))}
+              </Text>
+            ) : null}
+            <View style={[styles.modalActions, { marginTop: 8 }]}>
+              <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => { setShowAddDebtAmountModal(false); setAddDebtAmountTarget(null); }}>
+                <Text style={styles.cancelBtnText}>CANCELAR</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalBtn, styles.confirmBtn]} onPress={handleAddDebtAmount}>
+                <LinearGradient colors={['#f43f5e', '#be123c']} style={StyleSheet.absoluteFill} />
+                <Text style={styles.confirmBtnText}>AÑADIR</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Modal Añadir al total de Préstamo */}
+      <Modal visible={showAddLoanAmountModal} animationType="slide" transparent onRequestClose={() => setShowAddLoanAmountModal(false)}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <View style={styles.handle} />
+            <Text style={[styles.modalTitle, { color: '#10b981' }]}>[ AÑADIR AL TOTAL ]</Text>
+            {addLoanAmountTarget && (
+              <View style={[styles.debtPayInfo, { backgroundColor: 'rgba(16,185,129,0.08)', borderColor: 'rgba(16,185,129,0.25)' }]}>
+                <Text style={{ fontSize: 24 }}>{addLoanAmountTarget.icon}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.debtPayName}>{addLoanAmountTarget.name}</Text>
+                  <Text style={[styles.debtPayMeta, { color: '#34d399' }]}>
+                    Total prestado: {formatCurrency(addLoanAmountTarget.totalAmount)}
+                  </Text>
+                </View>
+              </View>
+            )}
+            <Text style={styles.fieldLabel}>IMPORTE A AÑADIR (€)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="0,00"
+              placeholderTextColor={COLORS.textDim}
+              keyboardType="decimal-pad"
+              value={addLoanAmountValue}
+              onChangeText={setAddLoanAmountValue}
+              autoFocus
+            />
+            {addLoanAmountTarget && addLoanAmountValue ? (
+              <Text style={{ color: COLORS.textDim, fontSize: 12, marginBottom: 16, marginTop: -8 }}>
+                Nuevo total: {formatCurrency(addLoanAmountTarget.totalAmount + (parseAmount(addLoanAmountValue) || 0))}
+              </Text>
+            ) : null}
+            <View style={[styles.modalActions, { marginTop: 8 }]}>
+              <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => { setShowAddLoanAmountModal(false); setAddLoanAmountTarget(null); }}>
+                <Text style={styles.cancelBtnText}>CANCELAR</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalBtn, styles.confirmBtn]} onPress={handleAddLoanAmount}>
+                <LinearGradient colors={['#10b981', '#059669']} style={StyleSheet.absoluteFill} />
+                <Text style={styles.confirmBtnText}>AÑADIR</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
       {/* Modal Nueva Categoría */}
       <Modal visible={showCatModal} animationType="slide" transparent onRequestClose={() => setShowCatModal(false)}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalOverlay}>
@@ -1313,7 +1445,7 @@ export default function RecurringScreen() {
 }
 
 
-function LoanRow({ item, onCollect, onDelete, onEdit }) {
+function LoanRow({ item, onCollect, onDelete, onEdit, onAddAmount }) {
   const total = item.totalAmount || 0;
   const collected = item.collectedAmount || 0;
   const progress = total > 0 ? Math.min(collected / total, 1) : 0;
@@ -1361,6 +1493,10 @@ function LoanRow({ item, onCollect, onDelete, onEdit }) {
               <Text style={[styles.applyBtnText, { color: '#10b981' }]}>COBRAR</Text>
             </TouchableOpacity>
           )}
+          <TouchableOpacity style={[styles.applyBtn, { borderColor: 'rgba(16,185,129,0.3)', backgroundColor: 'rgba(16,185,129,0.06)' }]} onPress={onAddAmount}>
+            <Ionicons name="add-circle-outline" size={10} color="#10b981" />
+            <Text style={[styles.applyBtnText, { color: '#10b981' }]}>AÑADIR</Text>
+          </TouchableOpacity>
           <TouchableOpacity onPress={onEdit}>
             <Ionicons name="pencil-outline" size={14} color={COLORS.textDim} />
           </TouchableOpacity>
@@ -1373,7 +1509,7 @@ function LoanRow({ item, onCollect, onDelete, onEdit }) {
   );
 }
 
-function DebtRow({ item, onPay, onDelete, onEdit }) {
+function DebtRow({ item, onPay, onDelete, onEdit, onAddAmount }) {
   const total = item.totalAmount || 0;
   const paid = item.paidAmount || 0;
   const progress = total > 0 ? Math.min(paid / total, 1) : 0;
@@ -1422,6 +1558,10 @@ function DebtRow({ item, onPay, onDelete, onEdit }) {
               <Text style={[styles.applyBtnText, { color: '#f43f5e' }]}>PAGAR</Text>
             </TouchableOpacity>
           )}
+          <TouchableOpacity style={[styles.applyBtn, { borderColor: 'rgba(244,63,94,0.3)', backgroundColor: 'rgba(244,63,94,0.06)' }]} onPress={onAddAmount}>
+            <Ionicons name="add-circle-outline" size={10} color="#f43f5e" />
+            <Text style={[styles.applyBtnText, { color: '#f43f5e' }]}>AÑADIR</Text>
+          </TouchableOpacity>
           <TouchableOpacity onPress={onEdit}>
             <Ionicons name="pencil-outline" size={14} color={COLORS.textDim} />
           </TouchableOpacity>
