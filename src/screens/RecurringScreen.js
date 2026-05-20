@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { notifySuccess, notifyWarning } from '../utils/haptics';
 import { useToast } from '../context/ToastContext';
 import { useCelebration } from '../context/CelebrationContext';
+import { useNavigation } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -83,6 +84,7 @@ const BLANK_COLLECT = {
 };
 
 export default function RecurringScreen() {
+  const nav = useNavigation();
   const {
     recurringItems, accounts, categories,
     addRecurring, updateRecurring, deleteRecurring, addCategory,
@@ -632,6 +634,7 @@ export default function RecurringScreen() {
                 onDelete={() => confirmDeleteDebt(item)}
                 onEdit={() => openEditDebt(item)}
                 onAddAmount={() => openAddDebtAmountModal(item)}
+                onHistory={() => nav.navigate('Transacciones', { search: item.name })}
               />
             ))
           )}
@@ -668,6 +671,7 @@ export default function RecurringScreen() {
                 onDelete={() => confirmDeleteLoan(item)}
                 onEdit={() => openEditLoan(item)}
                 onAddAmount={() => openAddLoanAmountModal(item)}
+                onHistory={() => nav.navigate('Transacciones', { search: item.name })}
               />
             ))
           )}
@@ -1445,11 +1449,25 @@ export default function RecurringScreen() {
 }
 
 
-function LoanRow({ item, onCollect, onDelete, onEdit, onAddAmount }) {
+function LoanRow({ item, onCollect, onDelete, onEdit, onAddAmount, onHistory }) {
   const total = item.totalAmount || 0;
   const collected = item.collectedAmount || 0;
   const progress = total > 0 ? Math.min(collected / total, 1) : 0;
   const remaining = total - collected;
+
+  const recoveryLabel = useMemo(() => {
+    if (!item.startDate || collected <= 0 || remaining <= 0) return null;
+    try {
+      const start = new Date(item.startDate);
+      const now = new Date();
+      const monthsElapsed = Math.max(1, (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth()));
+      const avgMonthly = collected / monthsElapsed;
+      if (avgMonthly <= 0) return null;
+      const monthsLeft = Math.ceil(remaining / avgMonthly);
+      if (monthsLeft > 120) return null;
+      return `A este ritmo, cobras en ~${monthsLeft} mes${monthsLeft !== 1 ? 'es' : ''}`;
+    } catch (_) { return null; }
+  }, [item.startDate, collected, remaining]);
 
   return (
     <GlowCard style={styles.recCard} color="rgba(16,185,129,0.12)">
@@ -1482,6 +1500,9 @@ function LoanRow({ item, onCollect, onDelete, onEdit, onAddAmount }) {
         />
       </View>
 
+      {recoveryLabel && (
+        <Text style={[styles.payoffHint, { color: '#34d399' }]}>{recoveryLabel}</Text>
+      )}
       <View style={styles.fiFooter}>
         <Text style={styles.fiMeta}>
           {formatCurrency(collected)} cobrado de {formatCurrency(total)}
@@ -1497,6 +1518,9 @@ function LoanRow({ item, onCollect, onDelete, onEdit, onAddAmount }) {
             <Ionicons name="add-circle-outline" size={10} color="#10b981" />
             <Text style={[styles.applyBtnText, { color: '#10b981' }]}>AÑADIR</Text>
           </TouchableOpacity>
+          <TouchableOpacity onPress={onHistory}>
+            <Ionicons name="time-outline" size={14} color={COLORS.textDim} />
+          </TouchableOpacity>
           <TouchableOpacity onPress={onEdit}>
             <Ionicons name="pencil-outline" size={14} color={COLORS.textDim} />
           </TouchableOpacity>
@@ -1509,11 +1533,25 @@ function LoanRow({ item, onCollect, onDelete, onEdit, onAddAmount }) {
   );
 }
 
-function DebtRow({ item, onPay, onDelete, onEdit, onAddAmount }) {
+function DebtRow({ item, onPay, onDelete, onEdit, onAddAmount, onHistory }) {
   const total = item.totalAmount || 0;
   const paid = item.paidAmount || 0;
   const progress = total > 0 ? Math.min(paid / total, 1) : 0;
   const remaining = total - paid;
+
+  const payoffLabel = useMemo(() => {
+    if (!item.startDate || paid <= 0 || remaining <= 0) return null;
+    try {
+      const start = new Date(item.startDate);
+      const now = new Date();
+      const monthsElapsed = Math.max(1, (now.getFullYear() - start.getFullYear()) * 12 + (now.getMonth() - start.getMonth()));
+      const avgMonthly = paid / monthsElapsed;
+      if (avgMonthly <= 0) return null;
+      const monthsLeft = Math.ceil(remaining / avgMonthly);
+      if (monthsLeft > 120) return null;
+      return `A este ritmo, terminas en ~${monthsLeft} mes${monthsLeft !== 1 ? 'es' : ''}`;
+    } catch (_) { return null; }
+  }, [item.startDate, paid, remaining]);
 
   return (
     <GlowCard style={styles.recCard} color="rgba(244,63,94,0.12)">
@@ -1547,6 +1585,9 @@ function DebtRow({ item, onPay, onDelete, onEdit, onAddAmount }) {
         />
       </View>
 
+      {payoffLabel && (
+        <Text style={styles.payoffHint}>{payoffLabel}</Text>
+      )}
       <View style={styles.fiFooter}>
         <Text style={styles.fiMeta}>
           {formatCurrency(paid)} pagado de {formatCurrency(total)}
@@ -1561,6 +1602,9 @@ function DebtRow({ item, onPay, onDelete, onEdit, onAddAmount }) {
           <TouchableOpacity style={[styles.applyBtn, { borderColor: 'rgba(244,63,94,0.3)', backgroundColor: 'rgba(244,63,94,0.06)' }]} onPress={onAddAmount}>
             <Ionicons name="add-circle-outline" size={10} color="#f43f5e" />
             <Text style={[styles.applyBtnText, { color: '#f43f5e' }]}>AÑADIR</Text>
+          </TouchableOpacity>
+          <TouchableOpacity onPress={onHistory}>
+            <Ionicons name="time-outline" size={14} color={COLORS.textDim} />
           </TouchableOpacity>
           <TouchableOpacity onPress={onEdit}>
             <Ionicons name="pencil-outline" size={14} color={COLORS.textDim} />
@@ -1780,6 +1824,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, borderWidth: 1,
   },
   cargoBadgeText: { fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
+  payoffHint: { color: '#fb7185', fontSize: 10, fontWeight: '600', marginTop: 6, marginBottom: 2 },
   progressBg: { height: 4, backgroundColor: COLORS.borderSubtle, borderRadius: 2, overflow: 'hidden', marginTop: 10, marginBottom: 8 },
   progressFill: { height: 4, borderRadius: 2 },
   fiFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

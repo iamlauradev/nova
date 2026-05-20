@@ -93,6 +93,7 @@ export default function HomeScreen() {
     activeDebts,
     addTransaction,
     budgets,
+    recurringItems,
   } = useFinance();
 
   const mainAccounts = accounts.filter(a => a.type !== 'savings');
@@ -167,6 +168,94 @@ export default function HomeScreen() {
       return { ...b, cat, spent, pct };
     }).filter(b => b.pct >= 0.8);
   }, [budgets, categories, monthTxs]);
+
+  // ── Próximos cargos fijos ─────────────────────────────────────────────────
+  const upcomingCharges = useMemo(() => {
+    if (!recurringItems) return [];
+    const today = now.getDate();
+    return recurringItems
+      .filter(r => r.active && r.type === 'expense' && r.frequency === 'monthly' && r.dayOfMonth)
+      .map(r => ({ ...r, daysUntil: Number(r.dayOfMonth) >= today ? Number(r.dayOfMonth) - today : null }))
+      .filter(r => r.daysUntil !== null && r.daysUntil <= 10)
+      .sort((a, b) => a.daysUntil - b.daysUntil)
+      .slice(0, 5);
+  }, [recurringItems, now]);
+
+  // ── Ingresos Rápidos ──────────────────────────────────────────────────────
+  const PINNED_INCOME_KEY = '@ingreso_rapido_pinned';
+  const [pinnedIncomeIds, setPinnedIncomeIds] = useState([]);
+  const [quickIncomeModal, setQuickIncomeModal] = useState(null);
+  const [quickIncomeAmount, setQuickIncomeAmount] = useState('');
+  const [quickIncomeAccountId, setQuickIncomeAccountId] = useState('');
+  const [showIncomeCatPicker, setShowIncomeCatPicker] = useState(false);
+  useEffect(() => {
+    AsyncStorage.getItem(PINNED_INCOME_KEY).then(v => { if (v) setPinnedIncomeIds(JSON.parse(v)); }).catch(() => {});
+  }, []);
+
+  const savePinnedIncome = useCallback(async (ids) => {
+    setPinnedIncomeIds(ids);
+    await AsyncStorage.setItem(PINNED_INCOME_KEY, JSON.stringify(ids)).catch(() => {});
+  }, []);
+
+  const pinIncomeCategory = (catId) => {
+    if (!pinnedIncomeIds.includes(catId)) savePinnedIncome([...pinnedIncomeIds, catId]);
+    setShowIncomeCatPicker(false);
+  };
+
+  const unpinIncomeCategory = (catId) => {
+    Alert.alert('Quitar acceso rápido', '¿Eliminar de Ingresos Rápidos?', [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Quitar', style: 'destructive', onPress: () => savePinnedIncome(pinnedIncomeIds.filter(id => id !== catId)) },
+    ]);
+  };
+
+  const frequentIncomeCats = useMemo(() => {
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 60);
+    const counts = {};
+    transactions.forEach(t => {
+      if (t.type === 'income' && new Date(t.date) >= cutoff) {
+        counts[t.category] = (counts[t.category] || 0) + 1;
+      }
+    });
+    return Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 8)
+      .map(([id]) => categories.income.find(c => c.id === id))
+      .filter(Boolean);
+  }, [transactions, categories.income]);
+
+  const quickIncomeCats = useMemo(() => {
+    const pinned = pinnedIncomeIds.map(id => categories.income.find(c => c.id === id)).filter(Boolean);
+    const pinnedSet = new Set(pinnedIncomeIds);
+    const autoFill = frequentIncomeCats.filter(c => !pinnedSet.has(c.id));
+    return [...pinned, ...autoFill].slice(0, 10);
+  }, [pinnedIncomeIds, frequentIncomeCats, categories.income]);
+
+  const openQuickIncomeAdd = (cat) => {
+    setQuickIncomeAmount('');
+    setQuickIncomeAccountId(accounts.find(a => a.type !== 'savings')?.id || '');
+    setQuickIncomeModal({ cat });
+  };
+
+  const confirmQuickIncomeAdd = async () => {
+    const amt = parseFloat(quickIncomeAmount.replace(',', '.'));
+    if (!amt || amt <= 0) return Alert.alert('Importe inválido', 'Introduce un importe mayor que 0');
+    if (!quickIncomeAccountId) return Alert.alert('Cuenta requerida', 'Selecciona una cuenta');
+    try {
+      await addTransaction({
+        type: 'income',
+        amount: amt,
+        category: quickIncomeModal.cat.id,
+        accountId: quickIncomeAccountId,
+        description: quickIncomeModal.cat.name,
+        date: new Date().toISOString(),
+      });
+      setQuickIncomeModal(null);
+    } catch (e) {
+      Alert.alert('Error', e.message);
+    }
+  };
 
   // ── Gastos Rápidos ─────────────────────────────────────────────────────────
   const PINNED_KEY = '@gasto_rapido_pinned';
@@ -291,7 +380,7 @@ export default function HomeScreen() {
                       {a.name}
                     </Text>
                     {!hidden && (
-                      <Text style={[styles.chipAmt, { color: a.color || COLORS.primary }]}>
+                      <Text style={[styles.chipAmt, { color: a.balance < 0 ? COLORS.expense : (a.color || COLORS.primary) }]}>
                         {formatCurrency(a.balance)}
                       </Text>
                     )}
@@ -428,6 +517,33 @@ export default function HomeScreen() {
             <Text style={styles.projHint}>Estimación basada en el ritmo de gasto actual del mes</Text>
           </GlowCard>
 
+          {/* ── PRÓXIMOS CARGOS FIJOS ── */}
+          {upcomingCharges.length > 0 && (
+            <GlowCard color="rgba(251,191,36,0.06)">
+              <View style={styles.budgetAlertHeader}>
+                <Text style={styles.budgetAlertTitle}>📅 PRÓXIMOS CARGOS</Text>
+                <TouchableOpacity onPress={() => nav.navigate('Compromisos')}>
+                  <Text style={styles.budgetAlertLink}>Ver todos →</Text>
+                </TouchableOpacity>
+              </View>
+              {upcomingCharges.map(r => {
+                const cat = categories.expense.find(c => c.id === r.category);
+                return (
+                  <View key={r.id} style={styles.upcomingRow}>
+                    <CategoryImage image={cat?.image} icon={cat?.icon || '💸'} size={20} />
+                    <View style={{ flex: 1, marginLeft: 10 }}>
+                      <Text style={styles.upcomingName}>{r.name}</Text>
+                      <Text style={styles.upcomingWhen}>
+                        {r.daysUntil === 0 ? 'Hoy' : `En ${r.daysUntil} día${r.daysUntil !== 1 ? 's' : ''}`}
+                      </Text>
+                    </View>
+                    <Text style={styles.upcomingAmt}>-{formatCurrency(r.amount)}</Text>
+                  </View>
+                );
+              })}
+            </GlowCard>
+          )}
+
           {/* ── ACCIONES RÁPIDAS ── */}
           <View style={styles.actionsRow}>
             <TouchableOpacity
@@ -499,6 +615,51 @@ export default function HomeScreen() {
             <TouchableOpacity
               style={[styles.quickChipAdd, { marginLeft: 4 }]}
               onPress={() => setShowCatPicker(true)}
+            >
+              <Ionicons name="add" size={18} color={COLORS.primaryLight} />
+            </TouchableOpacity>
+          </ScrollView>
+
+          {/* ── INGRESOS RÁPIDOS ── */}
+          <SectionHeader
+            title="⚡ INGRESOS RÁPIDOS"
+            right={
+              <TouchableOpacity onPress={() => setShowIncomeCatPicker(true)}>
+                <Text style={styles.seeAll}>+ Añadir</Text>
+              </TouchableOpacity>
+            }
+          />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickScroll}>
+            {quickIncomeCats.length === 0 ? (
+              <TouchableOpacity
+                style={[styles.quickChipAdd]}
+                onPress={() => nav.navigate('Transacciones', { openAdd: 'income' })}
+              >
+                <Ionicons name="flash" size={16} color={COLORS.income} />
+                <Text style={[styles.quickChipText, { color: COLORS.income }]}>Añadir ingreso</Text>
+              </TouchableOpacity>
+            ) : (
+              quickIncomeCats.map(cat => {
+                const isPinned = pinnedIncomeIds.includes(cat.id);
+                return (
+                  <TouchableOpacity
+                    key={cat.id}
+                    style={[styles.quickChip, { borderColor: COLORS.income }]}
+                    onPress={() => openQuickIncomeAdd(cat)}
+                    onLongPress={() => isPinned && unpinIncomeCategory(cat.id)}
+                    activeOpacity={0.75}
+                  >
+                    <LinearGradient colors={[COLORS.incomeGlow, 'transparent']} style={StyleSheet.absoluteFill} />
+                    <CategoryImage image={cat.image} icon={cat.icon} size={22} />
+                    <Text style={styles.quickChipText} numberOfLines={1}>{cat.name}</Text>
+                    {isPinned && <View style={[styles.quickPinDot, { backgroundColor: COLORS.income }]} />}
+                  </TouchableOpacity>
+                );
+              })
+            )}
+            <TouchableOpacity
+              style={[styles.quickChipAdd, { marginLeft: 4 }]}
+              onPress={() => setShowIncomeCatPicker(true)}
             >
               <Ionicons name="add" size={18} color={COLORS.primaryLight} />
             </TouchableOpacity>
@@ -726,6 +887,105 @@ export default function HomeScreen() {
         </Modal>
       )}
 
+      {/* ── Modal Quick Income Add ── */}
+      {quickIncomeModal && (
+        <Modal visible animationType="slide" transparent onRequestClose={() => setQuickIncomeModal(null)}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
+            <View style={styles.quickModalSheet}>
+              <View style={styles.handle} />
+              <View style={styles.quickModalHeader}>
+                <CategoryImage image={quickIncomeModal.cat.image} icon={quickIncomeModal.cat.icon} size={36} />
+                <View style={{ marginLeft: 12 }}>
+                  <Text style={styles.quickModalTitle}>{quickIncomeModal.cat.name}</Text>
+                  <Text style={styles.quickModalSub}>Registro rápido de ingreso</Text>
+                </View>
+              </View>
+
+              <Text style={styles.fieldLabel}>IMPORTE</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="0,00"
+                placeholderTextColor={COLORS.textDim}
+                keyboardType="decimal-pad"
+                value={quickIncomeAmount}
+                onChangeText={setQuickIncomeAmount}
+                autoFocus
+              />
+
+              <Text style={styles.fieldLabel}>CUENTA</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }}>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  {accounts.filter(a => a.type !== 'savings').map(acc => (
+                    <TouchableOpacity
+                      key={acc.id}
+                      style={[styles.accChip, quickIncomeAccountId === acc.id && { borderColor: acc.color || COLORS.primary, backgroundColor: `${acc.color || COLORS.primary}22` }]}
+                      onPress={() => setQuickIncomeAccountId(acc.id)}
+                    >
+                      <Text style={[styles.accChipText, quickIncomeAccountId === acc.id && { color: acc.color || COLORS.primary }]}>{acc.name}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </ScrollView>
+
+              <View style={styles.quickModalActions}>
+                <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => setQuickIncomeModal(null)}>
+                  <Text style={styles.cancelBtnText}>CANCELAR</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.modalBtn, styles.confirmBtn]} onPress={confirmQuickIncomeAdd}>
+                  <LinearGradient colors={[COLORS.income, '#15803d']} style={StyleSheet.absoluteFill} />
+                  <Ionicons name="flash" size={15} color="#fff" />
+                  <Text style={styles.confirmBtnText}>AÑADIR INGRESO</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </Modal>
+      )}
+
+      {/* ── Modal Picker de Categorías para Ingresos Rápidos ── */}
+      <Modal visible={showIncomeCatPicker} animationType="slide" transparent onRequestClose={() => setShowIncomeCatPicker(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.quickModalSheet, { maxHeight: '80%' }]}>
+            <View style={styles.handle} />
+            <Text style={styles.quickModalTitle}>AÑADIR A INGRESOS RÁPIDOS</Text>
+            <Text style={styles.quickModalSub}>Mantén pulsado un ingreso rápido para quitarlo</Text>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ marginTop: 12 }}>
+              {Object.entries(
+                categories.income.reduce((acc, cat) => {
+                  if (!acc[cat.group]) acc[cat.group] = [];
+                  acc[cat.group].push(cat);
+                  return acc;
+                }, {})
+              ).map(([group, cats]) => (
+                <View key={group} style={{ marginBottom: 12 }}>
+                  <Text style={styles.groupLabel}>{group}</Text>
+                  <View style={styles.catPickerGrid}>
+                    {cats.map(cat => {
+                      const already = pinnedIncomeIds.includes(cat.id);
+                      return (
+                        <TouchableOpacity
+                          key={cat.id}
+                          style={[styles.catPickerBtn, already && { borderColor: COLORS.income, backgroundColor: `${COLORS.income}18` }]}
+                          onPress={() => already ? unpinIncomeCategory(cat.id) : pinIncomeCategory(cat.id)}
+                        >
+                          <CategoryImage image={cat.image} icon={cat.icon} size={24} />
+                          <Text style={[styles.catPickerText, already && { color: COLORS.income }]} numberOfLines={2}>{cat.name}</Text>
+                          {already && <Ionicons name="checkmark-circle" size={12} color={COLORS.income} style={{ position: 'absolute', top: 4, right: 4 }} />}
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+            <TouchableOpacity style={[styles.modalBtn, styles.confirmBtn, { marginTop: 12 }]} onPress={() => setShowIncomeCatPicker(false)}>
+              <LinearGradient colors={[COLORS.primary, COLORS.primaryDark]} style={StyleSheet.absoluteFill} />
+              <Text style={styles.confirmBtnText}>LISTO</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {/* ── Modal Picker de Categorías para Gastos Rápidos ── */}
       <Modal visible={showCatPicker} animationType="slide" transparent onRequestClose={() => setShowCatPicker(false)}>
         <View style={styles.modalOverlay}>
@@ -829,6 +1089,12 @@ const styles = StyleSheet.create({
   projStatValue: { fontSize: 13, fontWeight: '700', textAlign: 'center' },
   projDivider: { width: 1, height: 30, backgroundColor: COLORS.borderSubtle },
   projHint: { fontSize: 10, color: COLORS.textDim, textAlign: 'center', marginTop: 2 },
+
+  // Upcoming charges
+  upcomingRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 7 },
+  upcomingName: { color: COLORS.text, fontSize: 13, fontWeight: '600' },
+  upcomingWhen: { color: COLORS.textDim, fontSize: 10, marginTop: 1 },
+  upcomingAmt: { color: COLORS.expense, fontSize: 13, fontWeight: '800' },
 
   // Budget alerts
   budgetAlertHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },

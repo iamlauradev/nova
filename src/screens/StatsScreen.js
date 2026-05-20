@@ -326,6 +326,15 @@ export default function StatsScreen() {
                             start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                           />
                         </View>
+                        {b.pct >= 1 ? (
+                          <Text style={[styles.budgetRemaining, { color: COLORS.expense }]}>
+                            Excedido {formatCurrency(b.spent - b.amount)}
+                          </Text>
+                        ) : (
+                          <Text style={styles.budgetRemaining}>
+                            Quedan {formatCurrency(b.amount - b.spent)}
+                          </Text>
+                        )}
                       </View>
                       <View style={styles.budgetAmts}>
                         <Text style={[styles.budgetSpent, { color: b.light.color }]}>{formatCurrency(b.spent)}</Text>
@@ -403,6 +412,25 @@ export default function StatsScreen() {
                     </View>
                     {!isDone && <Text style={styles.goalRemaining}>Faltan {formatCurrency(remaining)}</Text>}
                     {isDone && <Text style={[styles.goalRemaining, { color: COLORS.income }]}>✓ ¡Objetivo alcanzado!</Text>}
+                    {!isDone && g.targetDate && (() => {
+                      try {
+                        const parts = g.targetDate.split('/');
+                        if (parts.length === 3) {
+                          const target = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+                          const now2 = new Date();
+                          const monthsLeft = Math.max(1, (target.getFullYear() - now2.getFullYear()) * 12 + (target.getMonth() - now2.getMonth()));
+                          const neededPerMonth = remaining / monthsLeft;
+                          if (neededPerMonth > 0) {
+                            return (
+                              <Text style={styles.goalMonthlySuggestion}>
+                                💡 {formatCurrency(neededPerMonth)}/mes · {monthsLeft} mes{monthsLeft !== 1 ? 'es' : ''} restante{monthsLeft !== 1 ? 's' : ''}
+                              </Text>
+                            );
+                          }
+                        }
+                      } catch (_) {}
+                      return null;
+                    })()}
                   </GlowCard>
                 );
               })}
@@ -718,6 +746,8 @@ const styles = StyleSheet.create({
   goalPct: { color: COLORS.textMuted, fontSize: 11, fontWeight: '700' },
   goalTarget: { color: COLORS.textDim, fontSize: 12 },
   goalRemaining: { color: COLORS.textDim, fontSize: 11, marginTop: 4 },
+  goalMonthlySuggestion: { color: COLORS.gold, fontSize: 11, marginTop: 3, fontWeight: '600' },
+  budgetRemaining: { color: COLORS.textDim, fontSize: 10, marginTop: 3 },
 
   noData: { color: COLORS.textMuted, textAlign: 'center', fontSize: 13, paddingVertical: 8 },
   legendText: { color: COLORS.textMuted, fontSize: 12 },

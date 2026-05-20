@@ -134,7 +134,12 @@ export default function TransactionsScreen() {
         setShowModal(true);
       }
     }
-  }, [route.params?.openAdd]);
+    if (route.params?.search) {
+      setSearch(route.params.search);
+      setShowSearch(true);
+      setPeriodFilter('all');
+    }
+  }, [route.params?.openAdd, route.params?.search]);
 
   // ── Filtered transactions ────────────────────────────────────────────────
   const filtered = useMemo(() => {
@@ -564,7 +569,7 @@ export default function TransactionsScreen() {
             {accounts.length === 0 ? (
               <Text style={styles.noAccountsText}>Primero añade una cuenta en la pestaña "Cuentas"</Text>
             ) : (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                   {accounts.map(a => (
                     <TouchableOpacity
@@ -578,6 +583,14 @@ export default function TransactionsScreen() {
                 </View>
               </ScrollView>
             )}
+            {form.accountId ? (() => {
+              const selAcc = accounts.find(a => a.id === form.accountId);
+              return selAcc ? (
+                <Text style={[styles.accountBalHint, { color: selAcc.balance >= 0 ? COLORS.income : COLORS.expense }]}>
+                  Saldo: {formatCurrency(selAcc.balance)}
+                </Text>
+              ) : null;
+            })() : null}
 
             {/* ── Category picker ── */}
             <View style={styles.catLabelRow}>
@@ -952,6 +965,7 @@ const styles = StyleSheet.create({
     fontSize: 15, marginBottom: 16,
   },
   noAccountsText: { color: COLORS.expense, fontSize: 12, marginBottom: 16 },
+  accountBalHint: { fontSize: 11, fontWeight: '700', marginBottom: 14, paddingHorizontal: 2 },
   typeToggle: { flexDirection: 'row', gap: 10, marginBottom: 20 },
   typeBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
