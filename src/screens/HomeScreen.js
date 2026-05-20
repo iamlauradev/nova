@@ -454,7 +454,7 @@ export default function HomeScreen() {
             <GlowCard color="rgba(251,191,36,0.08)">
               <View style={styles.budgetAlertHeader}>
                 <Text style={styles.budgetAlertTitle}>⚠️ PRESUPUESTOS</Text>
-                <TouchableOpacity onPress={() => nav.navigate('Estadísticas')}>
+                <TouchableOpacity onPress={() => nav.navigate('Stats')}>
                   <Text style={styles.budgetAlertLink}>Ver todos →</Text>
                 </TouchableOpacity>
               </View>
@@ -522,7 +522,7 @@ export default function HomeScreen() {
             <GlowCard color="rgba(251,191,36,0.06)">
               <View style={styles.budgetAlertHeader}>
                 <Text style={styles.budgetAlertTitle}>📅 PRÓXIMOS CARGOS</Text>
-                <TouchableOpacity onPress={() => nav.navigate('Compromisos')}>
+                <TouchableOpacity onPress={() => nav.navigate('Fijos')}>
                   <Text style={styles.budgetAlertLink}>Ver todos →</Text>
                 </TouchableOpacity>
               </View>
@@ -731,7 +731,7 @@ export default function HomeScreen() {
               <SectionHeader
                 title="DEUDAS"
                 right={
-                  <TouchableOpacity onPress={() => nav.navigate('Compromisos')}>
+                  <TouchableOpacity onPress={() => nav.navigate('Fijos')}>
                     <Text style={styles.seeAll}>Gestionar →</Text>
                   </TouchableOpacity>
                 }
