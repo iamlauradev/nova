@@ -7,7 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRoute } from '@react-navigation/native';
 import { useFinance } from '../context/FinanceContext';
-import { COLORS } from '../theme';
+import { COLORS, ACCOUNT_TYPES } from '../theme';
 import { parseAmount, formatCurrency, formatDate } from '../utils';
 import { tapMedium, notifySuccess, notifyError, notifyWarning } from '../utils/haptics';
 import { useToast } from '../context/ToastContext';
@@ -104,11 +104,12 @@ export default function TransactionsScreen() {
   } = useFinance();
 
   // ── Filter state ─────────────────────────────────────────────────────────
-  const [typeFilter,   setTypeFilter]   = useState('all');
-  const [periodFilter, setPeriodFilter] = useState('month');
-  const [search,       setSearch]       = useState('');
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-  const [showSearch,   setShowSearch]   = useState(false);
+  const [typeFilter,    setTypeFilter]    = useState('all');
+  const [periodFilter,  setPeriodFilter]  = useState('month');
+  const [accountFilter, setAccountFilter] = useState(null); // null = todas
+  const [search,        setSearch]        = useState('');
+  const [visibleCount,  setVisibleCount]  = useState(PAGE_SIZE);
+  const [showSearch,    setShowSearch]    = useState(false);
 
   // ── Modal state ──────────────────────────────────────────────────────────
   const [showModal,        setShowModal]        = useState(false);
@@ -143,6 +144,8 @@ export default function TransactionsScreen() {
     // Type
     if (typeFilter === 'transfer') list = list.filter(t => t.type === 'transfer-in' || t.type === 'transfer-out');
     else if (typeFilter !== 'all') list = list.filter(t => t.type === typeFilter);
+    // Account
+    if (accountFilter) list = list.filter(t => t.accountId === accountFilter);
     // Search
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -158,10 +161,10 @@ export default function TransactionsScreen() {
       });
     }
     return list.slice().sort((a, b) => new Date(b.date) - new Date(a.date));
-  }, [transactions, typeFilter, periodFilter, search, categories]);
+  }, [transactions, typeFilter, periodFilter, accountFilter, search, categories]);
 
   // Reset pagination when filters/search change
-  React.useEffect(() => { setVisibleCount(PAGE_SIZE); }, [typeFilter, periodFilter, search]);
+  React.useEffect(() => { setVisibleCount(PAGE_SIZE); }, [typeFilter, periodFilter, accountFilter, search]);
 
   const visibleTxs = filtered.slice(0, visibleCount);
   const hasMore    = visibleCount < filtered.length;
@@ -405,6 +408,32 @@ export default function TransactionsScreen() {
             </TouchableOpacity>
           ))}
         </ScrollView>
+
+        {/* Account filter row */}
+        {accounts.length > 1 && (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterBar} contentContainerStyle={styles.filterBarContent}>
+            <TouchableOpacity
+              style={[styles.filterTab, accountFilter === null && { backgroundColor: COLORS.primaryGlow, borderColor: COLORS.primary }]}
+              onPress={() => setAccountFilter(null)}
+            >
+              <Text style={[styles.filterText, accountFilter === null && { color: COLORS.primaryLight }]}>TODAS</Text>
+            </TouchableOpacity>
+            {accounts.map(a => {
+              const accType = ACCOUNT_TYPES.find(t => t.id === a.type);
+              const active  = accountFilter === a.id;
+              return (
+                <TouchableOpacity
+                  key={a.id}
+                  style={[styles.filterTab, active && { backgroundColor: `${a.color}22`, borderColor: a.color }]}
+                  onPress={() => setAccountFilter(active ? null : a.id)}
+                >
+                  <Text style={{ fontSize: 11, marginRight: 4 }}>{accType?.icon || '💳'}</Text>
+                  <Text style={[styles.filterText, active && { color: a.color }]}>{a.name.toUpperCase()}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        )}
 
         {/* Totals strip */}
         {(typeFilter === 'all' || typeFilter === 'income' || typeFilter === 'expense') && (
