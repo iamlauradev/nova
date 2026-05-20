@@ -14,7 +14,7 @@ import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { AuthProvider, useAuth, SHOW_ONBOARDING_KEY } from './src/context/AuthContext';
-import { FinanceProvider } from './src/context/FinanceContext';
+import { FinanceProvider, useFinance } from './src/context/FinanceContext';
 import { SettingsProvider } from './src/context/SettingsContext';
 import { COLORS } from './src/theme';
 
@@ -40,6 +40,7 @@ import ProfileScreen    from './src/screens/ProfileScreen';
 
 const PRINCIPAL_IMAGE = require('./src/img/login.png');
 const LOGO_IMAGE      = require('./src/img/logo.png');
+const ERROR_IMAGE     = require('./src/img/error.png');
 
 
 const Tab   = createBottomTabNavigator();
@@ -182,6 +183,50 @@ function TabsNavigator({ user, logout }) {
   );
 }
 
+function ConnectionErrorGate({ children }) {
+  const { syncError, isLoaded, reload } = useFinance();
+  const [retrying, setRetrying] = React.useState(false);
+
+  const handleRetry = async () => {
+    setRetrying(true);
+    try { await reload(); } finally { setRetrying(false); }
+  };
+
+  if (isLoaded && syncError) {
+    return (
+      <View style={errorStyles.container}>
+        <Image source={ERROR_IMAGE} style={errorStyles.img} contentFit="contain" />
+        <Text style={errorStyles.title}>SIN CONEXIÓN</Text>
+        <Text style={errorStyles.sub}>No se puede contactar con el servidor</Text>
+        <TouchableOpacity style={errorStyles.btn} onPress={handleRetry} disabled={retrying}>
+          <Text style={errorStyles.btnText}>{retrying ? 'RECONECTANDO...' : 'REINTENTAR'}</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  return children;
+}
+
+const errorStyles = StyleSheet.create({
+  container: {
+    flex: 1, backgroundColor: COLORS.bg,
+    alignItems: 'center', justifyContent: 'center', padding: 32, gap: 12,
+  },
+  img: { width: 260, height: 260 },
+  title: {
+    color: COLORS.text, fontSize: 16, fontWeight: '800', letterSpacing: 4, marginTop: 8,
+    textShadowColor: COLORS.expenseGlow, textShadowRadius: 12,
+  },
+  sub: { color: COLORS.textMuted, fontSize: 12, letterSpacing: 1, textAlign: 'center' },
+  btn: {
+    marginTop: 16, paddingHorizontal: 32, paddingVertical: 14,
+    borderRadius: 4, borderWidth: 1, borderColor: COLORS.primary,
+    backgroundColor: COLORS.primaryGlow,
+  },
+  btnText: { color: COLORS.primaryLight, fontWeight: '700', fontSize: 12, letterSpacing: 2 },
+});
+
 function FirstTimeGate({ children }) {
   // null = comprobando, true = mostrar, false = no mostrar
   const [showOnboarding, setShowOnboarding] = React.useState(null);
@@ -227,6 +272,7 @@ function MainApp({ user, logout }) {
     <ToastProvider>
     <FinanceProvider isAuthenticated={!!user}>
       <SettingsProvider>
+        <ConnectionErrorGate>
         <NavigationContainer theme={NAV_THEME}>
           <CelebrationLayer>
           <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -239,6 +285,7 @@ function MainApp({ user, logout }) {
           </Stack.Navigator>
           </CelebrationLayer>
         </NavigationContainer>
+        </ConnectionErrorGate>
       </SettingsProvider>
     </FinanceProvider>
     </ToastProvider>
