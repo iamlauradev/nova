@@ -51,6 +51,8 @@ const PERIODS = [
   { key: 'all',    label: 'TODO' },
 ];
 
+const TYPE_LABELS = { all: 'TODOS', income: 'INGRESOS', expense: 'GASTOS', transfer: 'TRANSF.' };
+
 function txInPeriod(tx, period) {
   const now = new Date();
   const d = new Date(tx.date);
@@ -104,12 +106,14 @@ export default function TransactionsScreen() {
   } = useFinance();
 
   // ── Filter state ─────────────────────────────────────────────────────────
-  const [typeFilter,    setTypeFilter]    = useState('all');
-  const [periodFilter,  setPeriodFilter]  = useState('month');
-  const [accountFilter, setAccountFilter] = useState(null); // null = todas
-  const [search,        setSearch]        = useState('');
-  const [visibleCount,  setVisibleCount]  = useState(PAGE_SIZE);
-  const [showSearch,    setShowSearch]    = useState(false);
+  const [typeFilter,     setTypeFilter]     = useState('all');
+  const [periodFilter,   setPeriodFilter]   = useState('month');
+  const [accountFilter,  setAccountFilter]  = useState(null); // null = todas
+  const [categoryFilter, setCategoryFilter] = useState(null); // null = todas
+  const [activePanel,    setActivePanel]    = useState(null); // 'tiempo'|'tipo'|'categoria'|'cuenta'
+  const [search,         setSearch]         = useState('');
+  const [visibleCount,   setVisibleCount]   = useState(PAGE_SIZE);
+  const [showSearch,     setShowSearch]     = useState(false);
 
   // ── Modal state ──────────────────────────────────────────────────────────
   const [showModal,        setShowModal]        = useState(false);
@@ -151,6 +155,8 @@ export default function TransactionsScreen() {
     else if (typeFilter !== 'all') list = list.filter(t => t.type === typeFilter);
     // Account
     if (accountFilter) list = list.filter(t => t.accountId === accountFilter);
+    // Category
+    if (categoryFilter) list = list.filter(t => t.category === categoryFilter);
     // Search
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -166,10 +172,13 @@ export default function TransactionsScreen() {
       });
     }
     return list.slice().sort((a, b) => new Date(b.date) - new Date(a.date));
-  }, [transactions, typeFilter, periodFilter, accountFilter, search, categories]);
+  }, [transactions, typeFilter, periodFilter, accountFilter, categoryFilter, search, categories]);
 
   // Reset pagination when filters/search change
-  React.useEffect(() => { setVisibleCount(PAGE_SIZE); }, [typeFilter, periodFilter, accountFilter, search]);
+  React.useEffect(() => { setVisibleCount(PAGE_SIZE); }, [typeFilter, periodFilter, accountFilter, categoryFilter, search]);
+
+  // Reset category filter when type changes (categories are type-specific)
+  React.useEffect(() => { setCategoryFilter(null); }, [typeFilter]);
 
   const visibleTxs = filtered.slice(0, visibleCount);
   const hasMore    = visibleCount < filtered.length;
@@ -318,6 +327,14 @@ export default function TransactionsScreen() {
     }
   };
 
+  const togglePanel = (panel) => setActivePanel(prev => prev === panel ? null : panel);
+
+  const allCatsForFilter = useMemo(() => {
+    if (typeFilter === 'income')  return categories.income  || [];
+    if (typeFilter === 'expense') return categories.expense || [];
+    return [...(categories.income || []), ...(categories.expense || [])];
+  }, [categories, typeFilter]);
+
   const currentCats = form.type === 'income' ? (categories.income || []) : (categories.expense || []);
   const isTransfer = (type) => type === 'transfer-in' || type === 'transfer-out';
 
@@ -363,77 +380,154 @@ export default function TransactionsScreen() {
 
       {/* ── Filter bar ── */}
       <View style={styles.filterSection}>
-        {/* Period row */}
-        <View style={styles.periodRow}>
-          {PERIODS.map(p => (
-            <TouchableOpacity
-              key={p.key}
-              style={[styles.periodTab, periodFilter === p.key && styles.periodTabActive]}
-              onPress={() => setPeriodFilter(p.key)}
-            >
-              <Text style={[styles.periodText, periodFilter === p.key && styles.periodTextActive]}>
-                {p.label}
-              </Text>
+        {/* 4 dropdown headers + actions */}
+        <View style={styles.dropdownRow}>
+          {[
+            {
+              key:       'tiempo',
+              label:     'TIEMPO',
+              value:     PERIODS.find(p => p.key === periodFilter)?.label || 'ESTE MES',
+              hasActive: periodFilter !== 'month',
+            },
+            {
+              key:       'tipo',
+              label:     'TIPO',
+              value:     TYPE_LABELS[typeFilter] || 'TODOS',
+              hasActive: typeFilter !== 'all',
+            },
+            {
+              key:       'categoria',
+              label:     'CATEGORÍA',
+              value:     categoryFilter
+                ? (allCatsForFilter.find(c => c.id === categoryFilter)?.name || 'TODAS')
+                : 'TODAS',
+              hasActive: !!categoryFilter,
+            },
+            {
+              key:       'cuenta',
+              label:     'CUENTA',
+              value:     accountFilter
+                ? (accounts.find(a => a.id === accountFilter)?.name?.toUpperCase() || 'TODAS')
+                : 'TODAS',
+              hasActive: !!accountFilter,
+            },
+          ].map(d => {
+            const isOpen = activePanel === d.key;
+            return (
+              <TouchableOpacity
+                key={d.key}
+                style={[
+                  styles.dropdownBtn,
+                  isOpen    && styles.dropdownBtnOpen,
+                  d.hasActive && !isOpen && styles.dropdownBtnSet,
+                ]}
+                onPress={() => togglePanel(d.key)}
+                activeOpacity={0.75}
+              >
+                <Text style={styles.dropdownLabel}>{d.label}</Text>
+                <View style={styles.dropdownValueRow}>
+                  <Text
+                    style={[styles.dropdownValue, (d.hasActive || isOpen) && styles.dropdownValueActive]}
+                    numberOfLines={1}
+                  >
+                    {d.value}
+                  </Text>
+                  <Ionicons
+                    name={isOpen ? 'chevron-up' : 'chevron-down'}
+                    size={9}
+                    color={(d.hasActive || isOpen) ? COLORS.primaryLight : COLORS.textDim}
+                  />
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+
+          {/* Export + search icons */}
+          <View style={styles.dropdownActions}>
+            <TouchableOpacity style={styles.iconBtn} onPress={exportCSV}>
+              <Ionicons name="download-outline" size={14} color={COLORS.textDim} />
             </TouchableOpacity>
-          ))}
-          <View style={{ marginLeft: 'auto', flexDirection: 'row', gap: 2 }}>
             <TouchableOpacity
-              style={[styles.periodTab, { paddingHorizontal: 10 }]}
-              onPress={exportCSV}
-            >
-              <Ionicons name="download-outline" size={15} color={COLORS.textDim} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.periodTab, { paddingHorizontal: 10 }]}
+              style={styles.iconBtn}
               onPress={() => { setShowSearch(s => !s); if (showSearch) setSearch(''); }}
             >
               <Ionicons
                 name={showSearch ? 'close' : 'search'}
-                size={15}
+                size={14}
                 color={showSearch ? COLORS.primaryLight : COLORS.textDim}
               />
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Type row */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterBar} contentContainerStyle={styles.filterBarContent}>
-          {[
-            { key: 'all',      label: 'TODOS',           color: COLORS.primaryLight, bg: COLORS.primaryGlow, border: COLORS.primary },
-            { key: 'income',   label: 'INGRESOS',        color: COLORS.income,       bg: COLORS.incomeGlow,  border: COLORS.income  },
-            { key: 'expense',  label: 'GASTOS',          color: COLORS.expense,      bg: COLORS.expenseGlow, border: COLORS.expense  },
-            { key: 'transfer', label: 'TRANSFERENCIAS',  color: COLORS.gold,         bg: `${COLORS.gold}22`, border: COLORS.gold    },
-          ].map(f => (
-            <TouchableOpacity
-              key={f.key}
-              style={[styles.filterTab, typeFilter === f.key && { backgroundColor: f.bg, borderColor: f.border }]}
-              onPress={() => setTypeFilter(f.key)}
-            >
-              <Text style={[styles.filterText, typeFilter === f.key && { color: f.color }]}>{f.label}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        {/* Expanded panel */}
+        {activePanel && (
+          <ScrollView
+            style={styles.dropdownPanel}
+            contentContainerStyle={styles.dropdownPanelContent}
+            showsVerticalScrollIndicator
+            nestedScrollEnabled
+          >
+            {activePanel === 'tiempo' && PERIODS.map(p => (
+              <TouchableOpacity
+                key={p.key}
+                style={[styles.filterChip, periodFilter === p.key && styles.filterChipActivePrimary]}
+                onPress={() => setPeriodFilter(p.key)}
+              >
+                <Text style={[styles.filterChipText, periodFilter === p.key && styles.filterChipTextActive]}>
+                  {p.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
 
-        {/* Account filter row */}
-        {accounts.length > 1 && (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterBar} contentContainerStyle={styles.filterBarContent}>
-            <TouchableOpacity
-              style={[styles.filterTab, accountFilter === null && { backgroundColor: COLORS.primaryGlow, borderColor: COLORS.primary }]}
-              onPress={() => setAccountFilter(null)}
-            >
-              <Text style={[styles.filterText, accountFilter === null && { color: COLORS.primaryLight }]}>TODAS</Text>
-            </TouchableOpacity>
-            {accounts.map(a => {
-              const accType = ACCOUNT_TYPES.find(t => t.id === a.type);
-              const active  = accountFilter === a.id;
+            {activePanel === 'tipo' && [
+              { key: 'all',      label: 'TODOS',          color: COLORS.primaryLight, bg: COLORS.primaryGlow,  border: COLORS.primary },
+              { key: 'income',   label: 'INGRESOS',       color: COLORS.income,       bg: COLORS.incomeGlow,   border: COLORS.income  },
+              { key: 'expense',  label: 'GASTOS',         color: COLORS.expense,      bg: COLORS.expenseGlow,  border: COLORS.expense },
+              { key: 'transfer', label: 'TRANSFERENCIAS', color: COLORS.gold,         bg: `${COLORS.gold}22`,  border: COLORS.gold    },
+            ].map(f => (
+              <TouchableOpacity
+                key={f.key}
+                style={[styles.filterChip, typeFilter === f.key && { backgroundColor: f.bg, borderColor: f.border }]}
+                onPress={() => setTypeFilter(f.key)}
+              >
+                <Text style={[styles.filterChipText, typeFilter === f.key && { color: f.color }]}>
+                  {f.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+
+            {activePanel === 'categoria' && [{ id: null, name: 'TODAS' }, ...allCatsForFilter].map(c => (
+              <TouchableOpacity
+                key={c.id || 'all'}
+                style={[styles.filterChip, categoryFilter === c.id && styles.filterChipActivePrimary]}
+                onPress={() => setCategoryFilter(c.id)}
+              >
+                {c.id && <CategoryImage image={c.image} icon={c.icon} size={13} />}
+                <Text style={[styles.filterChipText, categoryFilter === c.id && styles.filterChipTextActive]}>
+                  {c.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+
+            {activePanel === 'cuenta' && [{ id: null, name: 'TODAS', color: null, type: null }, ...accounts].map(a => {
+              const isActive = accountFilter === a.id;
+              const accType  = ACCOUNT_TYPES.find(t => t.id === a.type);
               return (
                 <TouchableOpacity
-                  key={a.id}
-                  style={[styles.filterTab, active && { backgroundColor: `${a.color}22`, borderColor: a.color }]}
-                  onPress={() => setAccountFilter(active ? null : a.id)}
+                  key={a.id || 'all'}
+                  style={[
+                    styles.filterChip,
+                    isActive && (a.id
+                      ? { backgroundColor: `${a.color}22`, borderColor: a.color }
+                      : styles.filterChipActivePrimary),
+                  ]}
+                  onPress={() => setAccountFilter(a.id)}
                 >
-                  <Text style={{ fontSize: 11, marginRight: 4 }}>{accType?.icon || '💳'}</Text>
-                  <Text style={[styles.filterText, active && { color: a.color }]}>{a.name.toUpperCase()}</Text>
+                  {a.id && <Text style={{ fontSize: 12 }}>{accType?.icon || '💳'}</Text>}
+                  <Text style={[styles.filterChipText, isActive && (a.id ? { color: a.color } : styles.filterChipTextActive)]}>
+                    {a.id ? a.name.toUpperCase() : 'TODAS'}
+                  </Text>
                 </TouchableOpacity>
               );
             })}
@@ -872,33 +966,63 @@ const styles = StyleSheet.create({
   filterSection: {
     backgroundColor: COLORS.bgCard, borderBottomWidth: 1, borderBottomColor: COLORS.borderSubtle,
   },
-  periodRow: {
+
+  // Dropdown filter row
+  dropdownRow: {
     flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 12, paddingTop: 10, paddingBottom: 6, gap: 6,
+    paddingHorizontal: 10, paddingVertical: 8, gap: 5,
   },
-  periodTab: {
-    paddingHorizontal: 14, paddingVertical: 5, borderRadius: 20,
-    borderWidth: 1, borderColor: COLORS.borderSubtle,
+  dropdownBtn: {
+    flex: 1, paddingHorizontal: 7, paddingVertical: 6,
+    borderRadius: 6, borderWidth: 1, borderColor: COLORS.borderSubtle,
+    backgroundColor: COLORS.bgCardLight,
   },
-  periodTabActive: {
+  dropdownBtnOpen: {
+    borderColor: COLORS.primary, backgroundColor: COLORS.primaryGlow,
+  },
+  dropdownBtnSet: {
+    borderColor: `${COLORS.primary}66`,
+  },
+  dropdownLabel: {
+    color: COLORS.textDim, fontSize: 8, fontWeight: '700', letterSpacing: 0.5, marginBottom: 2,
+  },
+  dropdownValueRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 2,
+  },
+  dropdownValue: {
+    color: COLORS.textMuted, fontSize: 9, fontWeight: '600', flex: 1,
+  },
+  dropdownValueActive: { color: COLORS.primaryLight },
+  dropdownActions: {
+    flexDirection: 'row', gap: 3, alignItems: 'center',
+  },
+  iconBtn: {
+    padding: 6, borderRadius: 4, borderWidth: 1, borderColor: COLORS.borderSubtle,
+  },
+
+  // Expanded dropdown panel
+  dropdownPanel: {
+    maxHeight: 130,
+    borderTopWidth: 1, borderTopColor: COLORS.borderSubtle,
+  },
+  dropdownPanelContent: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: 8,
+    paddingHorizontal: 12, paddingVertical: 10,
+  },
+  filterChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20,
+    borderWidth: 1, borderColor: COLORS.borderSubtle, backgroundColor: COLORS.bgCardLight,
+  },
+  filterChipActivePrimary: {
     backgroundColor: COLORS.primaryGlow, borderColor: COLORS.primary,
   },
-  periodText:       { color: COLORS.textDim, fontSize: 10, fontWeight: '700', letterSpacing: 0.8 },
-  periodTextActive: { color: COLORS.primaryLight },
-
-  filterBar: { maxHeight: 44 },
-  filterBarContent: {
-    flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingVertical: 6,
-  },
-  filterTab: {
-    paddingHorizontal: 14, paddingVertical: 5, borderRadius: 20,
-    borderWidth: 1, borderColor: COLORS.borderSubtle,
-  },
-  filterText: { color: COLORS.textDim, fontSize: 10, fontWeight: '700', letterSpacing: 0.8 },
+  filterChipText: { color: COLORS.textDim, fontSize: 10, fontWeight: '700', letterSpacing: 0.8 },
+  filterChipTextActive: { color: COLORS.primaryLight },
 
   totalsRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12,
-    paddingBottom: 8,
+    paddingVertical: 6,
   },
   totalText: { fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
   totalSep:  { color: COLORS.textDim, fontSize: 12 },

@@ -131,6 +131,9 @@ export default function LoginScreen() {
               onChangeText={setUsername}
               autoCapitalize="none"
               autoCorrect={false}
+              autoComplete="username"
+              textContentType="username"
+              importantForAutofill="yes"
             />
 
             <Text style={styles.label}>CONTRASEÑA</Text>
@@ -143,6 +146,9 @@ export default function LoginScreen() {
                 onChangeText={setPassword}
                 secureTextEntry={!showPass}
                 autoCapitalize="none"
+                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                textContentType={mode === 'login' ? 'password' : 'newPassword'}
+                importantForAutofill="yes"
               />
               <TouchableOpacity onPress={() => setShowPass(p => !p)} style={styles.eyeBtn}>
                 <Ionicons
