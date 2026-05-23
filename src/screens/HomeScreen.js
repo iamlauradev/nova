@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,71 +10,38 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  Animated,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useFinance } from '../context/FinanceContext';
-import { COLORS, ACCOUNT_TYPES } from '../theme';
+import { COLORS } from '../theme';
 import { formatCurrency, formatDateShort as formatDate } from '../utils';
 import GlowCard from '../components/GlowCard';
 import SectionHeader from '../components/SectionHeader';
 import CategoryImage from '../components/CategoryImage';
+import AnimatedNumber from '../components/AnimatedNumber';
+import { HomeSkeleton } from '../components/SkeletonLoader';
+import AccountCard from './home/AccountCard';
+import TransactionRow from './home/TransactionRow';
 
-function AccountCard({ account, onPress }) {
-  const accountType = ACCOUNT_TYPES.find(t => t.id === account.type);
+function PulseView({ children, style }) {
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(anim, { toValue: 1, duration: 800, useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 0, duration: 800, useNativeDriver: true }),
+      ])
+    ).start();
+  }, []);
+  const opacity = anim.interpolate({ inputRange: [0, 1], outputRange: [0.25, 0.65] });
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
-      <View style={[styles.accountCard, { borderColor: account.color || COLORS.primary }]}>
-        <LinearGradient
-          colors={[`${account.color || COLORS.primary}22`, 'transparent']}
-          style={StyleSheet.absoluteFill}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-        />
-        <View style={styles.accountIconWrap}>
-          <CategoryImage image={accountType?.image} icon={accountType?.icon || '💳'} size={28} />
-        </View>
-        <Text style={styles.accountName} numberOfLines={1}>{account.name}</Text>
-        <Text style={styles.accountType}>{accountType?.label || 'Cuenta'}</Text>
-        <Text style={[styles.accountBalance, { color: account.balance >= 0 ? COLORS.income : COLORS.expense }]}>
-          {formatCurrency(account.balance)}
-        </Text>
-      </View>
-    </TouchableOpacity>
-  );
-}
-
-function TransactionRow({ tx, accounts, categories }) {
-  const account = accounts.find(a => a.id === tx.accountId);
-  const isTransfer = tx.type === 'transfer-in' || tx.type === 'transfer-out';
-  const isIncome = tx.type === 'income';
-  const cats = isIncome ? categories.income : categories.expense;
-  const cat = cats.find(c => c.id === tx.category);
-
-  const iconBg = isTransfer ? `${COLORS.gold}22` : 'transparent';
-  const iconBorder = isTransfer ? COLORS.gold : isIncome ? COLORS.income : COLORS.expense;
-  const amountColor = tx.type === 'transfer-in' ? COLORS.income : tx.type === 'transfer-out' ? COLORS.expense : isIncome ? COLORS.income : COLORS.expense;
-  const sign = isIncome || tx.type === 'transfer-in' ? '+' : '-';
-
-  return (
-    <View style={styles.txRow}>
-      <View style={[styles.txIcon, { backgroundColor: iconBg, borderColor: iconBorder }]}>
-        {isTransfer
-          ? <Ionicons name={tx.type === 'transfer-out' ? 'arrow-forward-circle' : 'arrow-back-circle'} size={18} color={COLORS.gold} />
-          : <CategoryImage image={cat?.image} icon={cat?.icon || '💸'} size={30} />
-        }
-      </View>
-      <View style={styles.txInfo}>
-        <Text style={styles.txName} numberOfLines={1}>
-          {tx.description || (isTransfer ? 'Transferencia' : cat?.name || 'Movimiento')}
-        </Text>
-        <Text style={styles.txSub}>{account?.name || '?'} · {formatDate(tx.date)}</Text>
-      </View>
-      <Text style={[styles.txAmount, { color: amountColor }]}>
-        {sign}{formatCurrency(tx.amount)}
-      </Text>
+    <View style={style}>
+      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: COLORS.expense, opacity, borderRadius: 6 }]} />
+      {children}
     </View>
   );
 }
@@ -91,9 +58,11 @@ export default function HomeScreen() {
     freeMoney,
     monthlyFixed,
     activeDebts,
+    activeLoans,
     addTransaction,
     budgets,
     recurringItems,
+    isLoaded,
   } = useFinance();
 
   const mainAccounts = accounts.filter(a => a.type !== 'savings');
@@ -147,6 +116,12 @@ export default function HomeScreen() {
   const prevExpense = prevMonthTxs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
   const incomeDelta  = prevIncome  > 0 ? ((monthIncome  - prevIncome)  / prevIncome)  * 100 : null;
   const expenseDelta = prevExpense > 0 ? ((monthExpense - prevExpense) / prevExpense) * 100 : null;
+
+  // ── Patrimonio neto ───────────────────────────────────────────────────────
+  const totalAssets      = accounts.reduce((s, a) => s + a.balance, 0);
+  const totalLiabilities = (activeDebts || []).reduce((s, d) => s + Math.max(0, d.totalAmount - d.paidAmount), 0);
+  const loansReceivable  = (activeLoans || []).reduce((s, l) => s + Math.max(0, l.totalAmount - l.collectedAmount), 0);
+  const netWorth         = totalAssets - totalLiabilities + loansReceivable;
 
   // ── End-of-month projection ───────────────────────────────────────────────
   const daysInMonth   = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
@@ -337,19 +312,23 @@ export default function HomeScreen() {
     }
   };
 
+  if (!isLoaded) return <HomeSkeleton />;
+
   return (
     <View style={styles.bg}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
         {/* ── HERO ── */}
-        <LinearGradient colors={['#0d0025', COLORS.bg]} style={styles.hero}>
+        <LinearGradient colors={['#0a0030', '#080820', COLORS.bg]} locations={[0, 0.5, 1]} style={styles.hero}>
           <Text style={styles.systemLabel}>⟨ SISTEMA FINANCIERO ⟩</Text>
           <Text style={styles.balanceLabel}>
             {isFiltered ? 'SALDO SELECCIONADO' : 'SALDO DISPONIBLE'}
           </Text>
-          <Text style={[styles.totalBalance, { color: displayBalance >= 0 ? COLORS.accent : COLORS.expense }]}>
-            {formatCurrency(displayBalance)}
-          </Text>
+          <AnimatedNumber
+            value={displayBalance}
+            style={[styles.totalBalance, { color: displayBalance >= 0 ? COLORS.accent : COLORS.expense }]}
+            format={formatCurrency}
+          />
           {totalSavings > 0 && (
             <Text style={styles.savingsHint}>+ {formatCurrency(totalSavings)} en ahorros</Text>
           )}
@@ -420,6 +399,38 @@ export default function HomeScreen() {
 
         <View style={styles.body}>
 
+          {/* ── PATRIMONIO NETO ── */}
+          {(activeDebts?.length > 0 || activeLoans?.length > 0) && (
+            <GlowCard color={netWorth >= 0 ? 'rgba(168,85,247,0.10)' : 'rgba(251,113,133,0.10)'}>
+              <View style={styles.netWorthHeader}>
+                <View>
+                  <Text style={styles.netWorthLabel}>⚖️ PATRIMONIO NETO</Text>
+                  <Text style={[styles.netWorthValue, { color: netWorth >= 0 ? COLORS.primary : COLORS.expense }]}>
+                    {netWorth >= 0 ? '+' : ''}{formatCurrency(netWorth)}
+                  </Text>
+                </View>
+                <View style={styles.netWorthRight}>
+                  <View style={styles.netWorthRow}>
+                    <Text style={styles.netWorthRowLabel}>Activos</Text>
+                    <Text style={[styles.netWorthRowValue, { color: COLORS.income }]}>{formatCurrency(totalAssets)}</Text>
+                  </View>
+                  {totalLiabilities > 0 && (
+                    <View style={styles.netWorthRow}>
+                      <Text style={styles.netWorthRowLabel}>Deudas</Text>
+                      <Text style={[styles.netWorthRowValue, { color: COLORS.expense }]}>-{formatCurrency(totalLiabilities)}</Text>
+                    </View>
+                  )}
+                  {loansReceivable > 0 && (
+                    <View style={styles.netWorthRow}>
+                      <Text style={styles.netWorthRowLabel}>Préstamos</Text>
+                      <Text style={[styles.netWorthRowValue, { color: COLORS.income }]}>+{formatCurrency(loansReceivable)}</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            </GlowCard>
+          )}
+
           {/* ── DINERO LIBRE ── */}
           <GlowCard color={`${freeColor}22`}>
             <View style={styles.freeMoneyHeader}>
@@ -458,25 +469,29 @@ export default function HomeScreen() {
                   <Text style={styles.budgetAlertLink}>Ver todos →</Text>
                 </TouchableOpacity>
               </View>
-              {budgetAlerts.map(b => (
-                <View key={b.id} style={styles.budgetAlertRow}>
-                  <Text style={{ fontSize: 16, marginRight: 6 }}>{b.cat?.icon || '💸'}</Text>
-                  <View style={{ flex: 1 }}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 3 }}>
-                      <Text style={styles.budgetAlertCat}>{b.cat?.name || b.categoryId}</Text>
-                      <Text style={[styles.budgetAlertPct, { color: b.pct >= 1 ? COLORS.expense : COLORS.gold }]}>
-                        {b.pct >= 1 ? '🔴' : '🟡'} {Math.round(b.pct * 100)}%
-                      </Text>
+              {budgetAlerts.map(b => {
+                const over = b.pct >= 1;
+                const RowWrapper = over ? PulseView : View;
+                return (
+                  <RowWrapper key={b.id} style={styles.budgetAlertRow}>
+                    <Text style={{ fontSize: 16, marginRight: 6 }}>{b.cat?.icon || '💸'}</Text>
+                    <View style={{ flex: 1 }}>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 3 }}>
+                        <Text style={styles.budgetAlertCat}>{b.cat?.name || b.categoryId}</Text>
+                        <Text style={[styles.budgetAlertPct, { color: over ? COLORS.expense : COLORS.gold }]}>
+                          {over ? '🔴' : '🟡'} {Math.round(b.pct * 100)}%
+                        </Text>
+                      </View>
+                      <View style={styles.budgetAlertBarBg}>
+                        <View style={[styles.budgetAlertBarFill, {
+                          width: `${Math.min(b.pct * 100, 100)}%`,
+                          backgroundColor: over ? COLORS.expense : COLORS.gold,
+                        }]} />
+                      </View>
                     </View>
-                    <View style={styles.budgetAlertBarBg}>
-                      <View style={[styles.budgetAlertBarFill, {
-                        width: `${Math.min(b.pct * 100, 100)}%`,
-                        backgroundColor: b.pct >= 1 ? COLORS.expense : COLORS.gold,
-                      }]} />
-                    </View>
-                  </View>
-                </View>
-              ))}
+                  </RowWrapper>
+                );
+              })}
             </GlowCard>
           )}
 
@@ -1106,7 +1121,16 @@ const styles = StyleSheet.create({
   budgetAlertBarBg: { height: 4, backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 2, overflow: 'hidden' },
   budgetAlertBarFill: { height: 4, borderRadius: 2 },
 
-  body: { paddingHorizontal: 16, paddingTop: 16, gap: 8 },
+  body: { paddingHorizontal: 14, paddingTop: 16, gap: 12 },
+
+  // Net worth
+  netWorthHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+  netWorthLabel: { color: COLORS.textMuted, fontSize: 10, letterSpacing: 2, fontWeight: '700', marginBottom: 4 },
+  netWorthValue: { fontSize: 26, fontWeight: '800', letterSpacing: -0.5 },
+  netWorthRight: { alignItems: 'flex-end', gap: 4 },
+  netWorthRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  netWorthRowLabel: { color: COLORS.textDim, fontSize: 10, letterSpacing: 1 },
+  netWorthRowValue: { fontSize: 12, fontWeight: '700' },
 
   // Free money
   freeMoneyHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 },
@@ -1123,9 +1147,9 @@ const styles = StyleSheet.create({
   actionsRow: { flexDirection: 'row', gap: 10, marginVertical: 4 },
   actionBtn: {
     flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 6, paddingVertical: 13, borderRadius: 4, borderWidth: 1, overflow: 'hidden',
+    gap: 6, paddingVertical: 14, borderRadius: 6, borderWidth: 1, overflow: 'hidden',
   },
-  actionText: { fontWeight: '700', fontSize: 11, letterSpacing: 1 },
+  actionText: { fontWeight: '800', fontSize: 11, letterSpacing: 1.5 },
 
   // Accounts
   accountScroll: { paddingBottom: 4, gap: 12 },
@@ -1193,19 +1217,19 @@ const styles = StyleSheet.create({
   quickScroll: { paddingBottom: 4, gap: 8, paddingHorizontal: 2 },
   quickChip: {
     flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-    width: 80, paddingVertical: 10, paddingHorizontal: 6, borderRadius: 10,
+    width: 82, paddingVertical: 11, paddingHorizontal: 6, borderRadius: 8,
     borderWidth: 1, overflow: 'hidden', backgroundColor: COLORS.bgCard, gap: 5,
     position: 'relative',
   },
-  quickChipText: { color: COLORS.text, fontSize: 10, fontWeight: '600', textAlign: 'center' },
+  quickChipText: { color: COLORS.textMuted, fontSize: 10, fontWeight: '600', textAlign: 'center' },
   quickPinDot: {
-    position: 'absolute', top: 5, right: 5, width: 6, height: 6,
+    position: 'absolute', top: 5, right: 5, width: 5, height: 5,
     borderRadius: 3, backgroundColor: COLORS.primary,
   },
   quickChipAdd: {
-    width: 44, height: 44, borderRadius: 22,
+    width: 44, height: 44, borderRadius: 8,
     alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderStyle: 'dashed', borderColor: COLORS.border,
+    borderWidth: 1, borderStyle: 'dashed', borderColor: COLORS.borderMid,
     backgroundColor: COLORS.bgCard,
     alignSelf: 'center',
   },
@@ -1213,20 +1237,20 @@ const styles = StyleSheet.create({
   // ── Modal Quick Add ───────────────────────────────────────────────────────
   modalOverlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: COLORS.overlay },
   quickModalSheet: {
-    backgroundColor: COLORS.bgModal, borderTopLeftRadius: 20, borderTopRightRadius: 20,
+    backgroundColor: COLORS.bgModal, borderTopLeftRadius: 16, borderTopRightRadius: 16,
     padding: 24, paddingBottom: 36,
-    borderTopWidth: 1, borderColor: COLORS.border,
+    borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1, borderColor: COLORS.borderSubtle,
   },
-  handle: { width: 40, height: 4, backgroundColor: COLORS.borderSubtle, borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
+  handle: { width: 36, height: 3, backgroundColor: COLORS.borderMid, borderRadius: 2, alignSelf: 'center', marginBottom: 22 },
   quickModalHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
   quickModalTitle: { color: COLORS.text, fontSize: 16, fontWeight: '800', letterSpacing: 0.5 },
   quickModalSub: { color: COLORS.textDim, fontSize: 11, marginTop: 2 },
   fieldLabel: { color: COLORS.textMuted, fontSize: 10, fontWeight: '700', letterSpacing: 2, marginBottom: 8 },
   input: {
-    borderWidth: 1, borderColor: COLORS.border, borderRadius: 4,
-    paddingHorizontal: 14, paddingVertical: 12,
+    borderWidth: 1, borderColor: COLORS.borderSubtle, borderRadius: 8,
+    paddingHorizontal: 14, paddingVertical: 13,
     color: COLORS.text, fontSize: 18, fontWeight: '700',
-    backgroundColor: COLORS.bgCard, marginBottom: 16,
+    backgroundColor: COLORS.surface, marginBottom: 16,
   },
   accChip: {
     paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1,

@@ -93,7 +93,7 @@ export default function AccountsScreen() {
     <View style={styles.bg}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {/* Hero */}
-        <LinearGradient colors={['#0d0025', COLORS.bg]} style={styles.hero}>
+        <LinearGradient colors={['#0a0030', '#080820', COLORS.bg]} locations={[0, 0.5, 1]} style={styles.hero}>
           <Text style={styles.systemLabel}>⟨ GESTIÓN DE CUENTAS ⟩</Text>
           <Text style={styles.totalLabel}>PATRIMONIO TOTAL</Text>
           <Text style={[styles.total, { color: totalBalance >= 0 ? COLORS.gold : COLORS.expense }]}>
@@ -372,10 +372,10 @@ const styles = StyleSheet.create({
   emptyState: {
     alignItems: 'center',
     padding: 32,
-    borderRadius: 4,
+    borderRadius: 6,
     borderWidth: 1,
     borderStyle: 'dashed',
-    borderColor: COLORS.border,
+    borderColor: COLORS.borderMid,
     gap: 8,
   },
   emptyTitle: { color: COLORS.text, fontSize: 16, fontWeight: '700', marginTop: 8 },
@@ -418,32 +418,32 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.bgModal,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
-    borderWidth: 1,
-    borderColor: COLORS.border,
+    borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1,
+    borderColor: COLORS.borderSubtle,
     padding: 24,
     paddingBottom: 40,
   },
-  handle: { width: 40, height: 4, backgroundColor: COLORS.border, borderRadius: 2, alignSelf: 'center', marginBottom: 20 },
-  modalTitle: { color: COLORS.accent, fontSize: 13, fontWeight: '700', letterSpacing: 2, marginBottom: 20 },
-  fieldLabel: { color: COLORS.textMuted, fontSize: 10, letterSpacing: 2, marginBottom: 8, fontWeight: '600' },
+  handle: { width: 36, height: 3, backgroundColor: COLORS.borderMid, borderRadius: 2, alignSelf: 'center', marginBottom: 22 },
+  modalTitle: { color: COLORS.accent, fontSize: 12, fontWeight: '800', letterSpacing: 2.5, marginBottom: 20 },
+  fieldLabel: { color: COLORS.textDim, fontSize: 10, letterSpacing: 1.5, marginBottom: 8, fontWeight: '700' },
   input: {
-    backgroundColor: COLORS.bgCardLight,
+    backgroundColor: COLORS.surface,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 4,
+    borderColor: COLORS.borderSubtle,
+    borderRadius: 8,
     color: COLORS.text,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 13,
     fontSize: 15,
     marginBottom: 16,
   },
   typeChip: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 12, paddingVertical: 8,
-    borderRadius: 20, borderWidth: 1,
-    borderColor: COLORS.borderSubtle, backgroundColor: COLORS.bgCardLight,
+    paddingHorizontal: 12, paddingVertical: 9,
+    borderRadius: 8, borderWidth: 1,
+    borderColor: COLORS.borderSubtle, backgroundColor: COLORS.surface,
   },
-  typeChipText: { color: COLORS.text, fontSize: 12, fontWeight: '600' },
+  typeChipText: { color: COLORS.textMuted, fontSize: 12, fontWeight: '600' },
   colorRow: { flexDirection: 'row', gap: 10, flexWrap: 'wrap', marginBottom: 24 },
   colorDot: { width: 30, height: 30, borderRadius: 15 },
   colorDotSelected: { borderWidth: 3, borderColor: COLORS.white, transform: [{ scale: 1.15 }] },
@@ -451,13 +451,13 @@ const styles = StyleSheet.create({
   modalBtn: {
     flex: 1,
     paddingVertical: 14,
-    borderRadius: 4,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
   },
-  cancelBtn: { borderWidth: 1, borderColor: COLORS.border },
+  cancelBtn: { borderWidth: 1, borderColor: COLORS.borderSubtle, backgroundColor: COLORS.surface },
   cancelBtnText: { color: COLORS.textMuted, fontWeight: '700', fontSize: 12, letterSpacing: 1 },
   confirmBtn: { position: 'relative' },
-  confirmBtnText: { color: COLORS.white, fontWeight: '700', fontSize: 12, letterSpacing: 1 },
+  confirmBtnText: { color: COLORS.white, fontWeight: '800', fontSize: 12, letterSpacing: 1 },
 });

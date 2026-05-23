@@ -1,3 +1,88 @@
+import { StyleSheet } from 'react-native';
+
+export const DARK_COLORS = {
+  // ── Fondos ────────────────────────────────────────────────────────────────
+  bg: '#07071a',           // negro azul-violeta profundo
+  bgCard: '#0e0e26',       // panel oscuro con toque violeta
+  bgCardLight: '#141436',  // superficie elevada, claramente distinta
+  bgModal: '#09091f',      // fondo modal muy oscuro
+  surface: '#12122e',      // superficie intermedia para elementos anidados
+
+  // ── Marca — violeta neón ─────────────────────────────────────────────────
+  primary: '#a855f7',
+  primaryLight: '#c084fc',
+  primaryDark: '#7c3aed',
+  primaryGlow: 'rgba(168, 85, 247, 0.45)',
+
+  // ── Cian neón ──────────────────────────────────────────────────────────
+  accent: '#22d3ee',
+  accentLight: '#67e8f9',
+  accentGlow: 'rgba(34, 211, 238, 0.45)',
+
+  // ── Oro neón ────────────────────────────────────────────────────────────
+  gold: '#fbbf24',
+  goldLight: '#fde68a',
+  goldGlow: 'rgba(251, 191, 36, 0.45)',
+
+  // ── Semántico — verde y rosa neón ────────────────────────────────────────
+  income: '#34d399',
+  incomeGlow: 'rgba(52, 211, 153, 0.45)',
+  expense: '#fb7185',
+  expenseGlow: 'rgba(251, 113, 133, 0.45)',
+
+  // ── Texto ────────────────────────────────────────────────────────────────
+  text: '#e2e8f0',
+  textMuted: '#8896a8',    // gris azulado más legible
+  textDim: '#5a6a82',      // era #475569, mucho mejor contraste
+  textInverse: '#07071a',
+
+  // ── Bordes ───────────────────────────────────────────────────────────────
+  border: 'rgba(168, 85, 247, 0.32)',       // violeta moderado — para corners y focus
+  borderStrong: 'rgba(168, 85, 247, 0.65)', // violeta intenso — para estados activos
+  borderAccent: 'rgba(34, 211, 238, 0.35)',
+  borderGold: 'rgba(251, 191, 36, 0.35)',
+  borderSubtle: 'rgba(255, 255, 255, 0.08)', // divisores y bordes de card
+  borderMid: 'rgba(255, 255, 255, 0.13)',    // divisores más visibles
+
+  // ── Overlays ─────────────────────────────────────────────────────────────
+  overlay: 'rgba(7, 7, 26, 0.92)',
+  white: '#ffffff',
+};
+
+export const LIGHT_COLORS = {
+  bg: '#f1f5f9',
+  bgCard: '#ffffff',
+  bgCardLight: '#f8fafc',
+  bgModal: '#ffffff',
+  surface: '#f4f4f8',
+  primary: '#7c3aed',
+  primaryLight: '#a855f7',
+  primaryDark: '#5b21b6',
+  primaryGlow: 'rgba(124, 58, 237, 0.15)',
+  accent: '#0891b2',
+  accentLight: '#06b6d4',
+  accentGlow: 'rgba(8, 145, 178, 0.15)',
+  gold: '#d97706',
+  goldLight: '#f59e0b',
+  goldGlow: 'rgba(217, 119, 6, 0.15)',
+  income: '#059669',
+  incomeGlow: 'rgba(5, 150, 105, 0.15)',
+  expense: '#e11d48',
+  expenseGlow: 'rgba(225, 29, 72, 0.15)',
+  text: '#0f172a',
+  textMuted: '#475569',
+  textDim: '#64748b',
+  textInverse: '#f1f5f9',
+  border: 'rgba(124, 58, 237, 0.20)',
+  borderStrong: 'rgba(124, 58, 237, 0.45)',
+  borderAccent: 'rgba(8, 145, 178, 0.22)',
+  borderGold: 'rgba(217, 119, 6, 0.22)',
+  borderSubtle: 'rgba(0, 0, 0, 0.07)',
+  borderMid: 'rgba(0, 0, 0, 0.12)',
+  overlay: 'rgba(15, 23, 42, 0.60)',
+  white: '#ffffff',
+};
+
 export const SIZES = {
   xs:  10,
   sm:  12,
@@ -9,48 +94,51 @@ export const SIZES = {
 };
 
 export const COLORS = {
-  // Backgrounds
-  bg: '#06060f',
-  bgCard: '#0d0d1f',
-  bgCardLight: '#13132b',
-  bgModal: '#09091c',
+  // ── Fondos ────────────────────────────────────────────────────────────────
+  bg: '#07071a',
+  bgCard: '#0e0e26',
+  bgCardLight: '#141436',
+  bgModal: '#09091f',
+  surface: '#12122e',
 
-  // Brand — purple neón
+  // ── Marca — violeta neón ─────────────────────────────────────────────────
   primary: '#a855f7',
   primaryLight: '#c084fc',
   primaryDark: '#7c3aed',
-  primaryGlow: 'rgba(168, 85, 247, 0.55)',
+  primaryGlow: 'rgba(168, 85, 247, 0.45)',
 
-  // Cyan neón
+  // ── Cian neón ──────────────────────────────────────────────────────────
   accent: '#22d3ee',
   accentLight: '#67e8f9',
-  accentGlow: 'rgba(34, 211, 238, 0.55)',
+  accentGlow: 'rgba(34, 211, 238, 0.45)',
 
-  // Oro neón
+  // ── Oro neón ────────────────────────────────────────────────────────────
   gold: '#fbbf24',
   goldLight: '#fde68a',
-  goldGlow: 'rgba(251, 191, 36, 0.55)',
+  goldGlow: 'rgba(251, 191, 36, 0.45)',
 
-  // Semántico — verde y rojo neón
+  // ── Semántico — verde y rosa neón ────────────────────────────────────────
   income: '#34d399',
   incomeGlow: 'rgba(52, 211, 153, 0.45)',
   expense: '#fb7185',
   expenseGlow: 'rgba(251, 113, 133, 0.45)',
 
-  // Texto
+  // ── Texto ────────────────────────────────────────────────────────────────
   text: '#e2e8f0',
-  textMuted: '#94a3b8',
-  textDim: '#475569',
-  textInverse: '#06060f',
+  textMuted: '#8896a8',
+  textDim: '#5a6a82',
+  textInverse: '#07071a',
 
-  // Bordes
-  border: 'rgba(168, 85, 247, 0.4)',
-  borderAccent: 'rgba(34, 211, 238, 0.45)',
-  borderGold: 'rgba(251, 191, 36, 0.45)',
-  borderSubtle: 'rgba(255, 255, 255, 0.07)',
+  // ── Bordes ───────────────────────────────────────────────────────────────
+  border: 'rgba(168, 85, 247, 0.32)',
+  borderStrong: 'rgba(168, 85, 247, 0.65)',
+  borderAccent: 'rgba(34, 211, 238, 0.35)',
+  borderGold: 'rgba(251, 191, 36, 0.35)',
+  borderSubtle: 'rgba(255, 255, 255, 0.08)',
+  borderMid: 'rgba(255, 255, 255, 0.13)',
 
-  // Overlays
-  overlay: 'rgba(6, 6, 18, 0.88)',
+  // ── Overlays ─────────────────────────────────────────────────────────────
+  overlay: 'rgba(7, 7, 26, 0.92)',
   white: '#ffffff',
 };
 
@@ -235,7 +323,78 @@ export const FREQUENCY_OPTIONS = [
   { id: 'custom',    label: 'Cada X meses' },
 ];
 
-// Emoji picker — para deudas y metas (se muestra como texto, no imagen)
+export const commonStyles = StyleSheet.create({
+  modal: {
+    flex: 1,
+    backgroundColor: COLORS.overlay,
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: COLORS.bgModal,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: COLORS.borderSubtle,
+    padding: 20,
+  },
+  handle: {
+    width: 36,
+    height: 3,
+    borderRadius: 2,
+    backgroundColor: COLORS.borderMid,
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  input: {
+    backgroundColor: COLORS.surface,
+    borderWidth: 1,
+    borderColor: COLORS.borderSubtle,
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    color: COLORS.text,
+    fontSize: 14,
+  },
+  fieldLabel: {
+    color: COLORS.textDim,
+    fontSize: 10,
+    letterSpacing: 1.5,
+    marginBottom: 7,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  primaryButton: {
+    backgroundColor: COLORS.primary,
+    borderRadius: 8,
+    paddingVertical: 15,
+    alignItems: 'center',
+    shadowColor: COLORS.primaryGlow,
+    shadowOpacity: 0.8,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  primaryButtonText: {
+    color: COLORS.white,
+    fontWeight: '800',
+    fontSize: 14,
+    letterSpacing: 0.5,
+  },
+  secondaryButton: {
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: 8,
+    paddingVertical: 13,
+    alignItems: 'center',
+  },
+  secondaryButtonText: {
+    color: COLORS.primaryLight,
+    fontWeight: '700',
+    fontSize: 13,
+  },
+});
+
 export const EMOJI_OPTIONS = [
   '👑','⚡','💎','🏰','🍖','🧪','🔮','🛡️','📜','🌀','🗺️','⚔️','🐉','🗡️',
   '🏹','🪄','💀','🔱','⚗️','🧿','🕯️','🔯','💫','🌟','✨','🪙','🗝️','📿',

@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { api } from '../services/api';
+import { api, getToken } from '../services/api';
+import { API_BASE_URL } from '../config';
 import { DEFAULT_CATEGORIES } from '../theme';
 import { schedulePaymentReminder, cancelPaymentReminder } from '../utils/notifications';
 
@@ -165,7 +166,55 @@ export function FinanceProvider({ children, isAuthenticated }) {
     }
   }, [isAuthenticated]);
 
-  // ── AppState: refresco al volver a primer plano + polling cada 30s ─────────
+  // ── B3: SSE — refresco en tiempo real sin polling ──────────────────────────
+  const sseRef = useRef(null);
+  useEffect(() => {
+    if (!isAuthenticated) { sseRef.current = null; return; }
+
+    let active = true;
+    let retryTimeout = null;
+
+    async function connect() {
+      if (!active) return;
+      try {
+        const token = await getToken();
+        if (!token || !active) return;
+
+        const url = `${API_BASE_URL}/api/events`;
+
+        const res = await fetch(url, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (!res.ok || !res.body) throw new Error('SSE connection failed');
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+
+        sseRef.current = reader;
+
+        while (active) {
+          const { done, value } = await reader.read();
+          if (done || !active) break;
+          const text = decoder.decode(value, { stream: true });
+          if (text.includes('"type":"refresh"')) silentRefresh();
+        }
+      } catch (_) {
+        // Reconnect after 5s on failure
+        if (active) retryTimeout = setTimeout(connect, 5_000);
+      }
+    }
+
+    connect();
+
+    return () => {
+      active = false;
+      if (retryTimeout) clearTimeout(retryTimeout);
+      try { sseRef.current?.cancel(); } catch (_) {}
+    };
+  }, [isAuthenticated, silentRefresh]);
+
+  // ── AppState: refresco al volver a primer plano (SSE puede haberse caído) ──
   const appStateRef = useRef(AppState.currentState);
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -178,12 +227,7 @@ export function FinanceProvider({ children, isAuthenticated }) {
       }
     });
 
-    const interval = setInterval(silentRefresh, 30_000);
-
-    return () => {
-      sub.remove();
-      clearInterval(interval);
-    };
+    return () => sub.remove();
   }, [isAuthenticated, silentRefresh]);
 
   // --- Cuentas ---

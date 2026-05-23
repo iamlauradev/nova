@@ -11,6 +11,7 @@ import { formatCurrency, parseAmount } from '../utils';
 import GlowCard from '../components/GlowCard';
 import SectionHeader from '../components/SectionHeader';
 import CategoryImage from '../components/CategoryImage';
+import HintTooltip from '../components/HintTooltip';
 
 const { width } = Dimensions.get('window');
 const CHART_W = width - 64;
@@ -32,28 +33,85 @@ function trafficLight(pct) {
 }
 
 // ─── sub-components ───────────────────────────────────────
-function BarChart({ data, maxVal, color }) {
+function BarChart({ data, maxVal, color, onSelect }) {
+  const [selected, setSelected] = React.useState(null);
   if (!data || data.length === 0) return null;
   const barW = Math.floor((CHART_W - (data.length - 1) * 6) / data.length);
   return (
-    <View style={{ height: 140 }}>
+    <View style={{ height: 160 }}>
       <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: 120, gap: 6 }}>
         {data.map((item, i) => {
           const pct = maxVal > 0 ? item.value / maxVal : 0;
+          const isSelected = selected === i;
           return (
-            <View key={i} style={{ width: barW, alignItems: 'center', gap: 4 }}>
+            <TouchableOpacity
+              key={i}
+              style={{ width: barW, alignItems: 'center', gap: 4, flex: 1 }}
+              onPress={() => setSelected(isSelected ? null : i)}
+              activeOpacity={0.7}
+            >
               <View style={{ flex: 1, width: '100%', backgroundColor: COLORS.borderSubtle, borderRadius: 3, overflow: 'hidden', justifyContent: 'flex-end' }}>
                 <LinearGradient
-                  colors={[color, `${color}55`]}
+                  colors={isSelected ? [color, color] : [color, `${color}55`]}
                   style={{ width: '100%', height: `${Math.max(pct * 100, 2)}%`, borderRadius: 3 }}
                   start={{ x: 0, y: 0 }} end={{ x: 0, y: 1 }}
                 />
               </View>
               <Text style={{ color: COLORS.textDim, fontSize: 8, textAlign: 'center' }} numberOfLines={1}>{item.label}</Text>
-            </View>
+            </TouchableOpacity>
           );
         })}
       </View>
+      {selected !== null && data[selected] && (
+        <View style={{ alignItems: 'center', marginTop: 8 }}>
+          <Text style={{ color: color, fontSize: 13, fontWeight: '800' }}>
+            {data[selected].label}: {formatCurrency(data[selected].value)}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function DualBarChart({ data, maxVal }) {
+  const [selected, setSelected] = React.useState(null);
+  if (!data || data.length === 0) return null;
+  return (
+    <View style={{ height: 160 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'flex-end', height: 120, gap: 6 }}>
+        {data.map((item, i) => {
+          const incPct = maxVal > 0 ? item.income / maxVal : 0;
+          const expPct = maxVal > 0 ? item.expense / maxVal : 0;
+          return (
+            <TouchableOpacity
+              key={i}
+              style={{ flex: 1, alignItems: 'center', gap: 4 }}
+              onPress={() => setSelected(selected === i ? null : i)}
+              activeOpacity={0.7}
+            >
+              <View style={{ flex: 1, width: '100%', flexDirection: 'row', gap: 2, alignItems: 'flex-end' }}>
+                <View style={{ flex: 1, backgroundColor: COLORS.borderSubtle, borderRadius: 2, overflow: 'hidden', justifyContent: 'flex-end' }}>
+                  <View style={{ height: `${Math.max(incPct * 100, 2)}%`, backgroundColor: COLORS.income, borderRadius: 2 }} />
+                </View>
+                <View style={{ flex: 1, backgroundColor: COLORS.borderSubtle, borderRadius: 2, overflow: 'hidden', justifyContent: 'flex-end' }}>
+                  <View style={{ height: `${Math.max(expPct * 100, 2)}%`, backgroundColor: COLORS.expense, borderRadius: 2 }} />
+                </View>
+              </View>
+              <Text style={{ color: COLORS.textDim, fontSize: 8, textAlign: 'center' }} numberOfLines={1}>{item.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+      {selected !== null && data[selected] && (
+        <View style={{ flexDirection: 'row', justifyContent: 'center', gap: 20, marginTop: 8 }}>
+          <Text style={{ color: COLORS.income, fontSize: 12, fontWeight: '700' }}>
+            +{formatCurrency(data[selected].income)}
+          </Text>
+          <Text style={{ color: COLORS.expense, fontSize: 12, fontWeight: '700' }}>
+            -{formatCurrency(data[selected].expense)}
+          </Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -64,9 +122,75 @@ export default function StatsScreen() {
     transactions, categories, accounts,
     budgets, addBudget, deleteBudget,
     goals, addGoal, updateGoal, deleteGoal,
+    debts, loans,
   } = useFinance();
 
   const [period, setPeriod] = useState('month');
+
+  // ── Informe mensual ──────────────────────────────────────────────────────────
+  const nowRef = new Date();
+  const [reportMonth, setReportMonth] = useState({ year: nowRef.getFullYear(), month: nowRef.getMonth() });
+
+  const MONTH_NAMES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+  const prevReportMonth = useMemo(() => ({
+    year:  reportMonth.month === 0 ? reportMonth.year - 1 : reportMonth.year,
+    month: reportMonth.month === 0 ? 11 : reportMonth.month - 1,
+  }), [reportMonth]);
+
+  const reportTxs = useMemo(() =>
+    transactions.filter(t => {
+      if (t.type === 'transfer-in' || t.type === 'transfer-out') return false;
+      const d = new Date(t.date);
+      return d.getFullYear() === reportMonth.year && d.getMonth() === reportMonth.month;
+    }), [transactions, reportMonth]);
+
+  const prevReportTxs = useMemo(() =>
+    transactions.filter(t => {
+      if (t.type === 'transfer-in' || t.type === 'transfer-out') return false;
+      const d = new Date(t.date);
+      return d.getFullYear() === prevReportMonth.year && d.getMonth() === prevReportMonth.month;
+    }), [transactions, prevReportMonth]);
+
+  const reportIncome  = reportTxs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+  const reportExpense = reportTxs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+  const reportNet     = reportIncome - reportExpense;
+  const prevIncome    = prevReportTxs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+  const prevExpense   = prevReportTxs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+
+  const reportExpByCat = useMemo(() => {
+    const map = {};
+    reportTxs.filter(t => t.type === 'expense').forEach(t => { map[t.category] = (map[t.category] || 0) + t.amount; });
+    return Object.entries(map)
+      .map(([id, amount]) => {
+        const cat = categories.expense.find(c => c.id === id);
+        return { id, name: cat?.name || id, icon: cat?.icon || '💸', image: cat?.image, amount };
+      })
+      .sort((a, b) => b.amount - a.amount).slice(0, 5);
+  }, [reportTxs, categories]);
+
+  const activeDebts = useMemo(() => (debts  || []).filter(d => d.active !== 0 && d.active !== false), [debts]);
+  const activeLoans = useMemo(() => (loans  || []).filter(l => l.active !== 0 && l.active !== false), [loans]);
+
+  const isCurrentMonth = reportMonth.year === nowRef.getFullYear() && reportMonth.month === nowRef.getMonth();
+
+  const prevMonth = () => setReportMonth(m => ({
+    year:  m.month === 0 ? m.year - 1 : m.year,
+    month: m.month === 0 ? 11 : m.month - 1,
+  }));
+  const nextMonth = () => {
+    if (isCurrentMonth) return;
+    setReportMonth(m => ({
+      year:  m.month === 11 ? m.year + 1 : m.year,
+      month: m.month === 11 ? 0 : m.month + 1,
+    }));
+  };
+
+  const pctChange = (current, previous) => {
+    if (previous === 0) return current > 0 ? '+∞' : '–';
+    const p = Math.round((current - previous) / previous * 100);
+    return (p > 0 ? '+' : '') + p + '%';
+  };
 
   // Budget modal
   const [showBudgetModal, setShowBudgetModal] = useState(false);
@@ -244,6 +368,82 @@ export default function StatsScreen() {
 
   const totalBalance = accounts.reduce((s, a) => s + a.balance, 0);
 
+  // ── C5: Anomalous spending detection ───────────────────────────────────────
+  const anomalies = useMemo(() => {
+    const now = new Date();
+    const curYear = now.getFullYear(), curMonth = now.getMonth();
+    const curExpByCat = {};
+    transactions.filter(t => {
+      if (t.type !== 'expense') return false;
+      const d = new Date(t.date);
+      return d.getFullYear() === curYear && d.getMonth() === curMonth;
+    }).forEach(t => { curExpByCat[t.category] = (curExpByCat[t.category] || 0) + t.amount; });
+
+    const avgByCat = {};
+    for (let i = 1; i <= 3; i++) {
+      const d = new Date(curYear, curMonth - i, 1);
+      transactions.filter(t => {
+        if (t.type !== 'expense') return false;
+        const td = new Date(t.date);
+        return td.getFullYear() === d.getFullYear() && td.getMonth() === d.getMonth();
+      }).forEach(t => { avgByCat[t.category] = (avgByCat[t.category] || 0) + t.amount; });
+    }
+    Object.keys(avgByCat).forEach(k => { avgByCat[k] /= 3; });
+
+    return Object.entries(curExpByCat)
+      .filter(([catId, amount]) => {
+        const avg = avgByCat[catId] || 0;
+        return avg > 0 && amount > avg * 1.5 && (amount - avg) > 20;
+      })
+      .map(([catId, amount]) => {
+        const cat = categories.expense.find(c => c.id === catId);
+        const avg = avgByCat[catId];
+        const pct = Math.round((amount - avg) / avg * 100);
+        return { catId, name: cat?.name || catId, icon: cat?.icon || '💸', image: cat?.image, amount, avg, pct };
+      })
+      .sort((a, b) => b.pct - a.pct)
+      .slice(0, 5);
+  }, [transactions, categories]);
+
+  // ── C6: Regla 50/30/20 ─────────────────────────────────────────────────────
+  const NEEDS_CATS = new Set(['food','housing','utilities','transport','gasolina','health','medicinas','dentista','agua','gas','electricidad','internet','movil','impuestos','seguros']);
+  const WANTS_CATS = new Set(['restaurants','clothing','streaming','sports','entertainment','travel','education','compras-online','compras-fisicas','cosmetica','videojuegos','cine','musica','viajes','vacaciones','copas','cervezas','comida-para-llevar','desayunos','caprichos-dulces']);
+  const rule503020 = useMemo(() => {
+    if (income <= 0) return null;
+    let needsSpent = 0, wantsSpent = 0;
+    periodTxs.filter(t => t.type === 'expense').forEach(t => {
+      if (NEEDS_CATS.has(t.category)) needsSpent += t.amount;
+      else if (WANTS_CATS.has(t.category)) wantsSpent += t.amount;
+    });
+    const savings = Math.max(0, income - expense);
+    return {
+      needs: { spent: needsSpent, pct: Math.round(needsSpent / income * 100), target: 50 },
+      wants: { spent: wantsSpent, pct: Math.round(wantsSpent / income * 100), target: 30 },
+      saves: { spent: savings,    pct: Math.round(savings    / income * 100), target: 20 },
+    };
+  }, [periodTxs, income, expense]);
+
+  // ── C8: Weekly cash flow (income + expense by week of month) ───────────────
+  const weeklyCashFlow = useMemo(() => {
+    if (period !== 'month') return null;
+    const weeks = [
+      { label: '1–7', income: 0, expense: 0 },
+      { label: '8–15', income: 0, expense: 0 },
+      { label: '16–22', income: 0, expense: 0 },
+      { label: '23+', income: 0, expense: 0 },
+    ];
+    periodTxs.filter(t => t.type === 'income' || t.type === 'expense').forEach(t => {
+      const day = new Date(t.date).getDate();
+      const idx = day <= 7 ? 0 : day <= 15 ? 1 : day <= 22 ? 2 : 3;
+      weeks[idx][t.type] += t.amount;
+    });
+    return weeks;
+  }, [periodTxs, period]);
+
+  const maxWeekly = weeklyCashFlow
+    ? Math.max(...weeklyCashFlow.flatMap(w => [w.income, w.expense]), 1)
+    : 1;
+
   return (
     <View style={styles.bg}>
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
@@ -255,17 +455,222 @@ export default function StatsScreen() {
             {['week', 'month', 'quarter'].map(p => (
               <TouchableOpacity
                 key={p}
-                style={[styles.periodBtn, period === p && { backgroundColor: COLORS.primaryGlow, borderColor: COLORS.primary }]}
+                style={[styles.periodBtn, period === p && period !== 'report' && { backgroundColor: COLORS.primaryGlow, borderColor: COLORS.primary }]}
                 onPress={() => setPeriod(p)}
               >
-                <Text style={[styles.periodText, period === p && { color: COLORS.primaryLight }]}>
+                <Text style={[styles.periodText, period === p && period !== 'report' && { color: COLORS.primaryLight }]}>
                   {p === 'week' ? 'SEMANA' : p === 'month' ? 'MES' : 'TRIMESTRE'}
                 </Text>
               </TouchableOpacity>
             ))}
+            <TouchableOpacity
+              style={[styles.periodBtn, period === 'report' && { backgroundColor: `${COLORS.gold}22`, borderColor: COLORS.gold }]}
+              onPress={() => setPeriod(p => p === 'report' ? 'month' : 'report')}
+            >
+              <Ionicons name="document-text-outline" size={12} color={period === 'report' ? COLORS.gold : COLORS.textDim} />
+            </TouchableOpacity>
           </View>
         </LinearGradient>
 
+        {/* ══════════════════════════════════════════════════════════════
+            INFORME MENSUAL
+        ══════════════════════════════════════════════════════════════ */}
+        {period === 'report' && (
+          <View style={styles.body}>
+            {/* Month navigator */}
+            <View style={styles.monthNav}>
+              <TouchableOpacity onPress={prevMonth} style={styles.monthNavBtn}>
+                <Ionicons name="chevron-back" size={20} color={COLORS.primaryLight} />
+              </TouchableOpacity>
+              <Text style={styles.monthNavTitle}>{MONTH_NAMES[reportMonth.month]} {reportMonth.year}</Text>
+              <TouchableOpacity onPress={nextMonth} style={styles.monthNavBtn} disabled={isCurrentMonth}>
+                <Ionicons name="chevron-forward" size={20} color={isCurrentMonth ? COLORS.borderSubtle : COLORS.primaryLight} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Summary */}
+            <View style={styles.summaryRow}>
+              <GlowCard style={styles.summaryCard} color={COLORS.incomeGlow}>
+                <Text style={styles.summaryLabel}>INGRESOS</Text>
+                <Text style={[styles.summaryValue, { color: COLORS.income }]}>{formatCurrency(reportIncome)}</Text>
+                {prevIncome > 0 && (
+                  <Text style={{ fontSize: 10, marginTop: 4, fontWeight: '700',
+                    color: reportIncome >= prevIncome ? COLORS.income : COLORS.expense }}>
+                    {pctChange(reportIncome, prevIncome)} vs mes ant.
+                  </Text>
+                )}
+              </GlowCard>
+              <GlowCard style={styles.summaryCard} color={COLORS.expenseGlow}>
+                <Text style={styles.summaryLabel}>GASTOS</Text>
+                <Text style={[styles.summaryValue, { color: COLORS.expense }]}>{formatCurrency(reportExpense)}</Text>
+                {prevExpense > 0 && (
+                  <Text style={{ fontSize: 10, marginTop: 4, fontWeight: '700',
+                    color: reportExpense <= prevExpense ? COLORS.income : COLORS.expense }}>
+                    {pctChange(reportExpense, prevExpense)} vs mes ant.
+                  </Text>
+                )}
+              </GlowCard>
+            </View>
+
+            <GlowCard color={reportNet >= 0 ? COLORS.incomeGlow : COLORS.expenseGlow}>
+              <View style={styles.netRow}>
+                <View>
+                  <Text style={styles.summaryLabel}>BALANCE DEL MES</Text>
+                  <Text style={[styles.netValue, { color: reportNet >= 0 ? COLORS.income : COLORS.expense }]}>
+                    {reportNet >= 0 ? '+' : ''}{formatCurrency(reportNet)}
+                  </Text>
+                  <Text style={{ color: COLORS.textDim, fontSize: 10, marginTop: 4 }}>
+                    {reportTxs.length} movimiento{reportTxs.length !== 1 ? 's' : ''}
+                  </Text>
+                </View>
+                <Ionicons name={reportNet >= 0 ? 'trending-up' : 'trending-down'} size={32}
+                  color={reportNet >= 0 ? COLORS.income : COLORS.expense} />
+              </View>
+            </GlowCard>
+
+            {/* Top categories */}
+            {reportExpByCat.length > 0 && (
+              <>
+                <SectionHeader title="TOP GASTOS POR CATEGORÍA" />
+                <GlowCard>
+                  <View style={{ gap: 14 }}>
+                    {reportExpByCat.map((cat, i) => (
+                      <View key={cat.id}>
+                        <View style={styles.catRow}>
+                          <Text style={{ color: COLORS.textDim, fontSize: 11, width: 14, marginRight: 6 }}>{i + 1}</Text>
+                          <CategoryImage image={cat.image} icon={cat.icon} size={18} style={{ marginRight: 8 }} />
+                          <Text style={styles.catName}>{cat.name}</Text>
+                          <Text style={[styles.catAmount, { color: COLORS.expense }]}>{formatCurrency(cat.amount)}</Text>
+                        </View>
+                        <View style={styles.catBarBg}>
+                          <LinearGradient
+                            colors={[COLORS.expense, `${COLORS.expense}44`]}
+                            style={[styles.catBarFill, { width: `${(cat.amount / (reportExpByCat[0]?.amount || 1)) * 100}%` }]}
+                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                          />
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                </GlowCard>
+              </>
+            )}
+
+            {/* Budget status */}
+            {budgetRows.length > 0 && (
+              <>
+                <View style={{ position: 'relative' }}>
+                  <SectionHeader title="PRESUPUESTOS ESTE MES" />
+                  <HintTooltip
+                    hintKey="budgets_hint"
+                    text="Crea límites de gasto por categoría. Te avisamos cuando te acercas al tope mensual."
+                  />
+                </View>
+                <GlowCard>
+                  <View style={{ gap: 12 }}>
+                    {budgetRows.map(b => (
+                      <View key={b.id}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                          <Text style={{ fontSize: 14 }}>{b.light.icon}</Text>
+                          <CategoryImage image={b.cat?.image} icon={b.cat?.icon || '💸'} size={16} style={{ marginRight: 4 }} />
+                          <Text style={[styles.catName, { flex: 1 }]}>{b.cat?.name || b.categoryId}</Text>
+                          <Text style={[styles.catAmount, { color: b.light.color }]}>{formatCurrency(b.spent)}</Text>
+                          <Text style={{ color: COLORS.textDim, fontSize: 11 }}>/{formatCurrency(b.amount)}</Text>
+                        </View>
+                        <View style={styles.budgetBarBg}>
+                          <LinearGradient
+                            colors={[b.light.color, `${b.light.color}66`]}
+                            style={[styles.budgetBarFill, { width: `${Math.min(b.pct * 100, 100)}%` }]}
+                            start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                          />
+                        </View>
+                      </View>
+                    ))}
+                  </View>
+                </GlowCard>
+              </>
+            )}
+
+            {/* Goals */}
+            {goals && goals.length > 0 && (
+              <>
+                <SectionHeader title="OBJETIVOS DE AHORRO" />
+                <GlowCard>
+                  <View style={{ gap: 14 }}>
+                    {goals.map(g => {
+                      const pct = g.targetAmount > 0 ? Math.min(1, g.currentAmount / g.targetAmount) : 0;
+                      const isDone = pct >= 1;
+                      const gColor = isDone ? COLORS.income : COLORS.gold;
+                      return (
+                        <View key={g.id}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                            <Text style={{ fontSize: 18 }}>{g.icon || '🎯'}</Text>
+                            <Text style={[styles.catName, { flex: 1 }]}>{g.name}</Text>
+                            <Text style={{ color: gColor, fontSize: 12, fontWeight: '700' }}>{Math.round(pct * 100)}%</Text>
+                          </View>
+                          <View style={styles.goalBarBg}>
+                            <LinearGradient
+                              colors={isDone ? [COLORS.income, `${COLORS.income}88`] : [COLORS.gold, `${COLORS.gold}66`]}
+                              style={[styles.goalBarFill, { width: `${Math.round(pct * 100)}%` }]}
+                              start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                            />
+                          </View>
+                          <Text style={styles.goalRemaining}>
+                            {isDone ? '✓ Alcanzado' : `${formatCurrency(g.currentAmount)} de ${formatCurrency(g.targetAmount)}`}
+                          </Text>
+                        </View>
+                      );
+                    })}
+                  </View>
+                </GlowCard>
+              </>
+            )}
+
+            {/* Debts & Loans */}
+            {(activeDebts.length > 0 || activeLoans.length > 0) && (
+              <>
+                <SectionHeader title="DEUDAS Y PRÉSTAMOS ACTIVOS" />
+                <GlowCard>
+                  <View style={{ gap: 10 }}>
+                    {activeDebts.map(d => (
+                      <View key={d.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Text style={{ fontSize: 16 }}>{d.icon || '🏚️'}</Text>
+                        <Text style={[styles.catName, { flex: 1 }]}>{d.name}</Text>
+                        <Text style={{ color: COLORS.expense, fontSize: 12, fontWeight: '700' }}>
+                          -{formatCurrency(Math.max(0, d.totalAmount - d.paidAmount))}
+                        </Text>
+                      </View>
+                    ))}
+                    {activeLoans.map(l => (
+                      <View key={l.id} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <Text style={{ fontSize: 16 }}>{l.icon || '🤝'}</Text>
+                        <Text style={[styles.catName, { flex: 1 }]}>{l.name}</Text>
+                        <Text style={{ color: COLORS.income, fontSize: 12, fontWeight: '700' }}>
+                          +{formatCurrency(Math.max(0, l.totalAmount - l.collectedAmount))}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                </GlowCard>
+              </>
+            )}
+
+            {reportTxs.length === 0 && budgetRows.length === 0 && (!goals || goals.length === 0) && (
+              <View style={[styles.emptyState, { marginTop: 24 }]}>
+                <Text style={{ fontSize: 40 }}>📊</Text>
+                <Text style={styles.emptyTitle}>Sin datos</Text>
+                <Text style={styles.emptySubtitle}>
+                  No hay movimientos en {MONTH_NAMES[reportMonth.month]} {reportMonth.year}
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════════
+            ANÁLISIS NORMAL (week / month / quarter)
+        ══════════════════════════════════════════════════════════════ */}
+        {period !== 'report' && (
         <View style={styles.body}>
 
           {/* ── RESUMEN ── */}
@@ -342,7 +747,10 @@ export default function StatsScreen() {
                       </View>
                       <TouchableOpacity onPress={() => Alert.alert('¿Eliminar?', `Eliminar presupuesto de ${b.cat?.name}?`, [
                         { text: 'Cancelar', style: 'cancel' },
-                        { text: 'Eliminar', style: 'destructive', onPress: () => deleteBudget(b.id) },
+                        { text: 'Eliminar', style: 'destructive', onPress: async () => {
+                          try { await deleteBudget(b.id); }
+                          catch (_) { Alert.alert('Error', 'No se pudo eliminar. Comprueba la conexión.'); }
+                        }},
                       ])} style={{ padding: 4 }}>
                         <Ionicons name="trash-outline" size={13} color={COLORS.textDim} />
                       </TouchableOpacity>
@@ -392,7 +800,10 @@ export default function StatsScreen() {
                         </TouchableOpacity>
                         <TouchableOpacity onPress={() => Alert.alert('¿Eliminar?', `Eliminar objetivo "${g.name}"?`, [
                           { text: 'Cancelar', style: 'cancel' },
-                          { text: 'Eliminar', style: 'destructive', onPress: () => deleteGoal(g.id) },
+                          { text: 'Eliminar', style: 'destructive', onPress: async () => {
+                            try { await deleteGoal(g.id); }
+                            catch (_) { Alert.alert('Error', 'No se pudo eliminar. Comprueba la conexión.'); }
+                          }},
                         ])} style={{ padding: 4 }}>
                           <Ionicons name="trash-outline" size={14} color={COLORS.textDim} />
                         </TouchableOpacity>
@@ -435,6 +846,95 @@ export default function StatsScreen() {
                 );
               })}
             </View>
+          )}
+
+          {/* ── C5: ALERTAS DE GASTO ANÓMALO ── */}
+          {anomalies.length > 0 && (
+            <>
+              <SectionHeader title="⚠️ GASTOS ANÓMALOS" />
+              <GlowCard color="rgba(251,113,133,0.08)">
+                <Text style={{ color: COLORS.textDim, fontSize: 10, marginBottom: 10 }}>
+                  Categorías que superan en +50% la media de los últimos 3 meses
+                </Text>
+                <View style={{ gap: 10 }}>
+                  {anomalies.map(a => (
+                    <View key={a.catId} style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <CategoryImage image={a.image} icon={a.icon} size={18} />
+                      <Text style={[styles.catName, { flex: 1 }]}>{a.name}</Text>
+                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={{ color: COLORS.expense, fontSize: 12, fontWeight: '800' }}>{formatCurrency(a.amount)}</Text>
+                        <Text style={{ color: COLORS.textDim, fontSize: 10 }}>media: {formatCurrency(a.avg)} ({a.pct > 0 ? '+' : ''}{a.pct}%)</Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              </GlowCard>
+            </>
+          )}
+
+          {/* ── C6: REGLA 50/30/20 ── */}
+          {rule503020 && (
+            <>
+              <SectionHeader title="REGLA 50/30/20" />
+              <GlowCard>
+                <Text style={{ color: COLORS.textDim, fontSize: 10, marginBottom: 12 }}>
+                  Distribución recomendada de los ingresos del período
+                </Text>
+                {[
+                  { key: 'needs', label: 'NECESIDADES', emoji: '🏠', color: COLORS.accent },
+                  { key: 'wants', label: 'DESEOS',      emoji: '🎉', color: COLORS.gold  },
+                  { key: 'saves', label: 'AHORRO',      emoji: '💎', color: COLORS.income },
+                ].map(({ key, label, emoji, color }) => {
+                  const row = rule503020[key];
+                  const over = row.pct > row.target;
+                  return (
+                    <View key={key} style={{ marginBottom: 12 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 5, gap: 6 }}>
+                        <Text style={{ fontSize: 14 }}>{emoji}</Text>
+                        <Text style={{ flex: 1, color: COLORS.text, fontSize: 12, fontWeight: '700' }}>
+                          {label}
+                        </Text>
+                        <Text style={{ color: COLORS.textDim, fontSize: 10 }}>
+                          meta {row.target}% · real {row.pct}%
+                        </Text>
+                        <Text style={{ color: over ? COLORS.expense : COLORS.income, fontSize: 11, fontWeight: '800', width: 28, textAlign: 'right' }}>
+                          {over ? '▲' : '✓'}
+                        </Text>
+                      </View>
+                      <View style={styles.budgetBarBg}>
+                        <LinearGradient
+                          colors={[color, `${color}66`]}
+                          style={[styles.budgetBarFill, { width: `${Math.min(row.pct, 100)}%`, opacity: over ? 1 : 0.8 }]}
+                          start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                        />
+                        {/* Target marker */}
+                        <View style={{ position: 'absolute', left: `${row.target}%`, top: 0, bottom: 0, width: 1, backgroundColor: COLORS.textDim }} />
+                      </View>
+                    </View>
+                  );
+                })}
+              </GlowCard>
+            </>
+          )}
+
+          {/* ── C8: FLUJO DE CAJA SEMANAL ── */}
+          {weeklyCashFlow && (
+            <>
+              <SectionHeader title="FLUJO DE CAJA SEMANAL" />
+              <GlowCard>
+                <View style={{ flexDirection: 'row', gap: 16, marginBottom: 8 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.income }} />
+                    <Text style={styles.legendText}>Ingresos</Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.expense }} />
+                    <Text style={styles.legendText}>Gastos</Text>
+                  </View>
+                </View>
+                <DualBarChart data={weeklyCashFlow} maxVal={maxWeekly} />
+              </GlowCard>
+            </>
           )}
 
           {/* ── GASTOS POR PERÍODO ── */}
@@ -556,6 +1056,7 @@ export default function StatsScreen() {
             </>
           )}
         </View>
+        )}
       </ScrollView>
 
       {/* ── Modal Presupuesto ── */}
@@ -702,9 +1203,14 @@ const styles = StyleSheet.create({
   scroll: { paddingBottom: 100 },
   header: { paddingTop: 56, paddingBottom: 20, paddingHorizontal: 16 },
   systemLabel: { color: COLORS.accentLight, fontSize: 10, letterSpacing: 3, fontWeight: '700', marginBottom: 16, opacity: 0.8 },
-  periodRow: { flexDirection: 'row', gap: 8 },
+  periodRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   periodBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: COLORS.borderSubtle },
   periodText: { color: COLORS.textDim, fontSize: 11, fontWeight: '700', letterSpacing: 1 },
+
+  // Informe mensual
+  monthNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 16, paddingVertical: 4 },
+  monthNavBtn: { padding: 8 },
+  monthNavTitle: { color: COLORS.text, fontSize: 16, fontWeight: '800', letterSpacing: 1, minWidth: 180, textAlign: 'center' },
 
   body: { paddingHorizontal: 16, paddingTop: 16, gap: 12 },
 

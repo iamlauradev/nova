@@ -2,31 +2,44 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { COLORS } from '../theme';
 
-// A reusable card with the Solo Leveling "System Window" aesthetic
+// Deriva el color de los corners desde el prop color a mayor opacidad
+function cornerColor(color) {
+  if (!color) return COLORS.border;
+  if (color.startsWith('rgba')) {
+    // rgba(R,G,B,A) → rgba(R,G,B,0.42)
+    return color.replace(/[\d.]+\)$/, '0.42)');
+  }
+  // hex #RRGGBB22 → usa el hex sin alpha + opacidad fija
+  const base = color.length === 9 ? color.slice(0, 7) : color;
+  return `${base}6a`;
+}
+
 export default function GlowCard({ children, style, color, noPadding }) {
   const glowColor = color || COLORS.primaryGlow;
-  const borderColor = color ? color.replace('0.45', '0.5') : COLORS.border;
+  const cColor = cornerColor(color);
 
   return (
-    <View style={[styles.card, { borderColor, shadowColor: glowColor }, style]}>
-      {/* Corner decorations */}
-      <View style={[styles.cornerTL, { borderColor }]} />
-      <View style={[styles.cornerTR, { borderColor }]} />
-      <View style={[styles.cornerBL, { borderColor }]} />
-      <View style={[styles.cornerBR, { borderColor }]} />
+    <View style={[styles.card, { shadowColor: glowColor }, style]}>
+      <View style={[styles.cornerTL, { borderColor: cColor }]} />
+      <View style={[styles.cornerTR, { borderColor: cColor }]} />
+      <View style={[styles.cornerBL, { borderColor: cColor }]} />
+      <View style={[styles.cornerBR, { borderColor: cColor }]} />
       <View style={noPadding ? styles.innerNoPad : styles.inner}>{children}</View>
     </View>
   );
 }
 
-const CORNER = 8;
+const CORNER = 10;
+
 const styles = StyleSheet.create({
   card: {
     backgroundColor: COLORS.bgCard,
     borderWidth: 1,
-    borderRadius: 4,
-    shadowOpacity: 0.6,
-    shadowRadius: 12,
+    borderColor: COLORS.borderSubtle,   // borde exterior muy sutil — la profundidad la da el shadow
+    borderRadius: 6,
+    shadowOpacity: 0.5,
+    shadowRadius: 18,                    // glow difuso, amplio y elegante
+    shadowOffset: { width: 0, height: 2 },
     elevation: 8,
     position: 'relative',
   },
@@ -37,43 +50,23 @@ const styles = StyleSheet.create({
     padding: 0,
   },
   cornerTL: {
-    position: 'absolute',
-    top: -1,
-    left: -1,
-    width: CORNER,
-    height: CORNER,
-    borderTopWidth: 2,
-    borderLeftWidth: 2,
-    zIndex: 1,
+    position: 'absolute', top: -1, left: -1,
+    width: CORNER, height: CORNER,
+    borderTopWidth: 2, borderLeftWidth: 2, zIndex: 1,
   },
   cornerTR: {
-    position: 'absolute',
-    top: -1,
-    right: -1,
-    width: CORNER,
-    height: CORNER,
-    borderTopWidth: 2,
-    borderRightWidth: 2,
-    zIndex: 1,
+    position: 'absolute', top: -1, right: -1,
+    width: CORNER, height: CORNER,
+    borderTopWidth: 2, borderRightWidth: 2, zIndex: 1,
   },
   cornerBL: {
-    position: 'absolute',
-    bottom: -1,
-    left: -1,
-    width: CORNER,
-    height: CORNER,
-    borderBottomWidth: 2,
-    borderLeftWidth: 2,
-    zIndex: 1,
+    position: 'absolute', bottom: -1, left: -1,
+    width: CORNER, height: CORNER,
+    borderBottomWidth: 2, borderLeftWidth: 2, zIndex: 1,
   },
   cornerBR: {
-    position: 'absolute',
-    bottom: -1,
-    right: -1,
-    width: CORNER,
-    height: CORNER,
-    borderBottomWidth: 2,
-    borderRightWidth: 2,
-    zIndex: 1,
+    position: 'absolute', bottom: -1, right: -1,
+    width: CORNER, height: CORNER,
+    borderBottomWidth: 2, borderRightWidth: 2, zIndex: 1,
   },
 });

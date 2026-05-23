@@ -5,9 +5,9 @@ import { COLORS } from '../theme';
 export default function SectionHeader({ title, right }) {
   return (
     <View style={styles.row}>
-      <View style={styles.titleRow}>
-        <View style={styles.dot} />
-        <Text style={styles.title}>[ {title} ]</Text>
+      <View style={styles.left}>
+        <View style={styles.accentBar} />
+        <Text style={styles.title}>{title}</Text>
       </View>
       {right && <View>{right}</View>}
     </View>
@@ -19,17 +19,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 10,
   },
-  titleRow: {
+  left: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
   },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+  accentBar: {
+    width: 2,
+    height: 13,
+    borderRadius: 1,
     backgroundColor: COLORS.accent,
     shadowColor: COLORS.accent,
     shadowOpacity: 1,
@@ -38,8 +38,8 @@ const styles = StyleSheet.create({
   },
   title: {
     color: COLORS.accent,
-    fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 2,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 2.5,
   },
 });

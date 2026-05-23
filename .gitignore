@@ -9,6 +9,7 @@ backend/node_modules/
 nova-data/*.db
 nova-data/*.db-shm
 nova-data/*.db-wal
+backend/data/
 
 # Expo / Metro
 .expo/

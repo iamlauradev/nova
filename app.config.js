@@ -1,0 +1,57 @@
+module.exports = {
+  expo: {
+    name: 'Nova',
+    slug: 'nova',
+    version: '1.0.1',
+    orientation: 'portrait',
+    icon: './src/img/logo.png',
+    userInterfaceStyle: 'dark',
+    splash: {
+      image: './src/img/login.png',
+      resizeMode: 'contain',
+      backgroundColor: '#060612',
+    },
+    assetBundlePatterns: ['**/*'],
+    ios: {
+      supportsTablet: false,
+      bundleIdentifier: 'dev.iamlaura.nova',
+    },
+    android: {
+      adaptiveIcon: {
+        foregroundImage: './src/img/logo.png',
+        backgroundColor: '#060612',
+      },
+      package: 'dev.iamlaura.nova',
+      versionCode: 2,
+    },
+    web: {
+      favicon: './assets/favicon.png',
+    },
+    plugins: [
+      [
+        'expo-build-properties',
+        {
+          android: {
+            compileSdkVersion: 34,
+            targetSdkVersion: 34,
+          },
+        },
+      ],
+      [
+        'expo-notifications',
+        {
+          icon: './src/img/logo.png',
+          color: '#060612',
+          androidMode: 'default',
+        },
+      ],
+    ],
+    extra: {
+      eas: {
+        projectId: '9d867c79-f807-4b00-8fb1-36d82b6fe03d',
+      },
+      apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL || 'https://nova.iamlaura.dev',
+    },
+    owner: 'iamlaura',
+  },
+};

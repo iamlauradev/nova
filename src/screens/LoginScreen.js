@@ -56,7 +56,8 @@ export default function LoginScreen() {
     <View style={styles.bg}>
       {/* Fondo degradado */}
       <LinearGradient
-        colors={['#0d0025', '#060612', '#060612']}
+        colors={['#0c0030', '#08081e', '#07071a']}
+        locations={[0, 0.45, 1]}
         style={StyleSheet.absoluteFill}
       />
 
@@ -200,26 +201,25 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   bg: { flex: 1, backgroundColor: COLORS.bg },
 
-  // Decoración de fondo
   decoration1: {
     position: 'absolute',
-    width: 300,
-    height: 300,
-    borderRadius: 150,
+    width: 380,
+    height: 380,
+    borderRadius: 190,
     backgroundColor: COLORS.primaryGlow,
-    top: -100,
-    right: -100,
-    opacity: 0.15,
+    top: -140,
+    right: -120,
+    opacity: 0.12,
   },
   decoration2: {
     position: 'absolute',
-    width: 200,
-    height: 200,
-    borderRadius: 100,
+    width: 260,
+    height: 260,
+    borderRadius: 130,
     backgroundColor: COLORS.accentGlow,
-    bottom: 50,
-    left: -80,
-    opacity: 0.1,
+    bottom: 60,
+    left: -100,
+    opacity: 0.08,
   },
 
   scroll: {
@@ -253,24 +253,24 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 
-  // Card
   card: {
     backgroundColor: COLORS.bgCard,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 4,
+    borderColor: COLORS.borderSubtle,
+    borderRadius: 6,
     padding: 24,
     position: 'relative',
     shadowColor: COLORS.primaryGlow,
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-    elevation: 8,
+    shadowOpacity: 0.6,
+    shadowRadius: 24,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 10,
   },
   corner: {
     position: 'absolute',
     width: CORNER_SIZE,
     height: CORNER_SIZE,
-    borderColor: COLORS.accent,
+    borderColor: COLORS.border,
     zIndex: 2,
   },
   cornerTL: { top: -1, left: -1, borderTopWidth: 2, borderLeftWidth: 2 },
@@ -278,33 +278,32 @@ const styles = StyleSheet.create({
   cornerBL: { bottom: -1, left: -1, borderBottomWidth: 2, borderLeftWidth: 2 },
   cornerBR: { bottom: -1, right: -1, borderBottomWidth: 2, borderRightWidth: 2 },
 
-  // Mode toggle
   modeToggle: {
     flexDirection: 'row',
-    backgroundColor: COLORS.bgCardLight,
-    borderRadius: 4,
+    backgroundColor: COLORS.surface,
+    borderRadius: 6,
     borderWidth: 1,
     borderColor: COLORS.borderSubtle,
     marginBottom: 24,
     padding: 3,
   },
-  modeBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 2 },
-  modeBtnActive: { backgroundColor: COLORS.primaryGlow, borderWidth: 1, borderColor: COLORS.border },
+  modeBtn: { flex: 1, paddingVertical: 11, alignItems: 'center', borderRadius: 4 },
+  modeBtnActive: { backgroundColor: 'rgba(168,85,247,0.18)', borderWidth: 1, borderColor: COLORS.border },
   modeBtnText: { color: COLORS.textDim, fontSize: 11, fontWeight: '700', letterSpacing: 2 },
   modeBtnTextActive: { color: COLORS.primaryLight },
 
   label: {
-    color: COLORS.textMuted,
-    fontSize: 9,
+    color: COLORS.textDim,
+    fontSize: 10,
     fontWeight: '700',
-    letterSpacing: 2,
+    letterSpacing: 1.5,
     marginBottom: 8,
   },
   input: {
-    backgroundColor: COLORS.bgCardLight,
+    backgroundColor: COLORS.surface,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 4,
+    borderColor: COLORS.borderSubtle,
+    borderRadius: 8,
     color: COLORS.text,
     paddingHorizontal: 14,
     paddingVertical: 13,
@@ -314,10 +313,10 @@ const styles = StyleSheet.create({
   passWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.bgCardLight,
+    backgroundColor: COLORS.surface,
     borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: 4,
+    borderColor: COLORS.borderSubtle,
+    borderRadius: 8,
     marginBottom: 24,
   },
   passInput: {
@@ -331,20 +330,21 @@ const styles = StyleSheet.create({
 
   submitBtn: {
     paddingVertical: 16,
-    borderRadius: 4,
+    borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
     shadowColor: COLORS.primaryGlow,
     shadowOpacity: 1,
-    shadowRadius: 16,
-    elevation: 8,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 10,
   },
   submitText: {
     color: COLORS.white,
     fontWeight: '800',
     fontSize: 12,
-    letterSpacing: 2,
+    letterSpacing: 2.5,
   },
 
   hint: {

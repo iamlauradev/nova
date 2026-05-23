@@ -16,6 +16,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { AuthProvider, useAuth, SHOW_ONBOARDING_KEY } from './src/context/AuthContext';
 import { FinanceProvider, useFinance } from './src/context/FinanceContext';
 import { SettingsProvider } from './src/context/SettingsContext';
+import { ThemeProvider } from './src/context/ThemeContext';
+import { initSentry } from './src/utils/sentry';
 import { COLORS } from './src/theme';
 
 import ErrorBoundary from './src/components/ErrorBoundary';
@@ -37,6 +39,9 @@ import RecurringScreen from './src/screens/RecurringScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import CategoriesScreen from './src/screens/CategoriesScreen';
 import ProfileScreen    from './src/screens/ProfileScreen';
+import SearchScreen     from './src/screens/SearchScreen';
+
+initSentry();
 
 const PRINCIPAL_IMAGE = require('./src/img/login.png');
 const LOGO_IMAGE      = require('./src/img/logo.png');
@@ -79,9 +84,9 @@ const tabStyles = StyleSheet.create({
   wrapper: { alignItems: 'center', justifyContent: 'center', width: 48, height: 40 },
   pill: {
     position: 'absolute',
-    width: 48, height: 36, borderRadius: 18,
-    backgroundColor: `${COLORS.primary}22`,
-    borderWidth: 1, borderColor: COLORS.border,
+    width: 48, height: 34, borderRadius: 17,
+    backgroundColor: `${COLORS.primary}1a`,
+    borderWidth: 1, borderColor: `${COLORS.primary}40`,
   },
   glow: { shadowColor: COLORS.primary, shadowOpacity: 1, shadowRadius: 10, elevation: 6 },
 });
@@ -105,6 +110,15 @@ function HeaderGearButton() {
   );
 }
 
+function HeaderSearchButton() {
+  const nav = useNavigation();
+  return (
+    <TouchableOpacity onPress={() => nav.navigate('Search')} style={{ marginRight: 4 }}>
+      <Ionicons name="search-outline" size={20} color={COLORS.textDim} />
+    </TouchableOpacity>
+  );
+}
+
 function HeaderLogoutButton({ onPress }) {
   return (
     <TouchableOpacity onPress={onPress} style={{ marginRight: 16 }}>
@@ -118,23 +132,24 @@ function TabsNavigator({ user, logout }) {
     <Tab.Navigator
       screenOptions={() => ({
         headerShown: true,
-        headerStyle: { backgroundColor: COLORS.bgCard, borderBottomWidth: 1, borderBottomColor: COLORS.border },
+        headerStyle: { backgroundColor: COLORS.bgCard, borderBottomWidth: 1, borderBottomColor: COLORS.borderSubtle },
         headerTintColor: COLORS.textMuted,
         headerTitleStyle: { fontSize: 10, fontWeight: '700', letterSpacing: 3, color: COLORS.accent },
         headerRight: () => (
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <HeaderSearchButton />
             <HeaderGearButton />
             <HeaderLogoutButton onPress={logout} />
           </View>
         ),
         tabBarStyle: {
           backgroundColor: COLORS.bgCard,
-          borderTopColor: COLORS.border, borderTopWidth: 1,
-          height: 70, paddingBottom: 10, paddingTop: 6,
+          borderTopColor: COLORS.borderSubtle, borderTopWidth: 1,
+          height: 66, paddingBottom: 8, paddingTop: 6,
         },
         tabBarActiveTintColor: COLORS.primaryLight,
         tabBarInactiveTintColor: COLORS.textDim,
-        tabBarLabelStyle: { fontSize: 9, fontWeight: '700', letterSpacing: 1 },
+        tabBarLabelStyle: { fontSize: 9, fontWeight: '800', letterSpacing: 1.5 },
       })}
     >
       <Tab.Screen
@@ -272,6 +287,7 @@ function MainApp({ user, logout }) {
     <ToastProvider>
     <FinanceProvider isAuthenticated={!!user}>
       <SettingsProvider>
+        <ThemeProvider>
         <ConnectionErrorGate>
         <NavigationContainer theme={NAV_THEME}>
           <CelebrationLayer>
@@ -282,10 +298,12 @@ function MainApp({ user, logout }) {
             <Stack.Screen name="Settings"   component={SettingsScreen} />
             <Stack.Screen name="Categories" component={CategoriesScreen} />
             <Stack.Screen name="Profile"    component={ProfileScreen} />
+            <Stack.Screen name="Search"     component={SearchScreen} options={{ presentation: 'modal' }} />
           </Stack.Navigator>
           </CelebrationLayer>
         </NavigationContainer>
         </ConnectionErrorGate>
+        </ThemeProvider>
       </SettingsProvider>
     </FinanceProvider>
     </ToastProvider>

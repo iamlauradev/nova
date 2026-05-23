@@ -1,26 +1,53 @@
-# 📱 Solo Finance — Cómo instalar en tu móvil
+# Nova Finance — Cómo instalar en tu móvil
 
-## Opción A: APK rápida con Expo Go (para probar)
+## Requisitos previos
 
-Esta opción te permite probar la app al instante sin necesidad de compilar.
+- **Node.js** 18 o superior
+- **Variable de entorno obligatoria**: `JWT_SECRET` — el servidor no arranca sin ella
 
-1. Instala **Expo Go** en tu móvil Android (está en Google Play)
-2. En tu ordenador, abre una terminal en esta carpeta y ejecuta:
+## Configurar y arrancar el backend
+
+```bash
+cd backend
+
+# Instalar dependencias
+npm install
+
+# Arrancar (imprescindible definir JWT_SECRET)
+JWT_SECRET=tu_clave_secreta_aqui node server.js
+```
+
+El servidor queda en el puerto 3000 por defecto (configurable con `PORT`).
+
+Si usas Docker:
+
+```bash
+docker-compose up --build
+```
+
+---
+
+## Opción A: Probar con Expo Go (sin compilar)
+
+1. Instala **Expo Go** en tu móvil Android (Google Play)
+2. En la raíz del proyecto:
    ```bash
    npm install
    npx expo start
    ```
 3. Escanea el código QR con Expo Go
 
+> Asegúrate de que `src/config.js` apunta a la IP/puerto correctos de tu backend.
+
 ---
 
 ## Opción B: APK real para instalar sin Expo (recomendado)
 
-Esta opción genera una `.apk` real que puedes instalar en cualquier Android.
+Genera una `.apk` real que puedes instalar en cualquier Android.
 
-### Requisitos previos
-- Node.js instalado
-- Cuenta gratuita en https://expo.dev (crear una)
+### Requisitos adicionales
+
+- Cuenta gratuita en https://expo.dev
 
 ### Pasos
 
@@ -28,7 +55,7 @@ Esta opción genera una `.apk` real que puedes instalar en cualquier Android.
 # 1. Instalar dependencias
 npm install
 
-# 2. Instalar EAS CLI
+# 2. Instalar EAS CLI (si no lo tienes)
 npm install -g eas-cli
 
 # 3. Iniciar sesión en Expo
@@ -41,32 +68,46 @@ eas build:configure
 eas build --platform android --profile preview
 ```
 
-Cuando termine (tarda ~10-15 min), recibirás un enlace para descargar la `.apk`.
-Cópiala a tu móvil e instálala (puede que necesites activar "Instalar apps de origen desconocido" en Ajustes > Seguridad).
+Cuando termine (~10-15 min), recibirás un enlace para descargar la `.apk`.
+Cópiala al móvil e instálala (puede que necesites activar "Instalar apps de origen desconocido" en Ajustes › Seguridad).
 
 ---
 
-## Estructura de la app
+## Estructura del proyecto
 
 ```
-App.js                  → Punto de entrada y navegación
+App.js                          → Punto de entrada y navegación
+backend/
+  server.js                     → API REST (Express + SQLite)
 src/
   context/
-    FinanceContext.js   → Estado global y persistencia
+    FinanceContext.js            → Estado global y llamadas a la API
+    AuthContext.js               → Autenticación y refresh de tokens
   screens/
-    HomeScreen.js       → Dashboard principal
-    AccountsScreen.js   → Gestión de cuentas
-    TransactionsScreen.js → Ingresos y gastos
-    StatsScreen.js      → Estadísticas y gráficas
-    RecurringScreen.js  → Compromisos fijos
+    HomeScreen.js                → Dashboard principal
+    AccountsScreen.js            → Gestión de cuentas
+    TransactionsScreen.js        → Ingresos, gastos y transferencias
+    StatsScreen.js               → Estadísticas, presupuestos y objetivos
+    RecurringScreen.js           → Compromisos fijos, deudas y préstamos
+  utils/
+    autoCategory.js              → Sugerencia automática de categoría
+    notifications.js             → Recordatorios de pagos
   theme/
-    index.js            → Colores y estilos Solo Leveling
+    index.js                     → Colores, categorías y estilos base
   components/
-    GlowCard.js         → Tarjeta con efecto glow
-    SectionHeader.js    → Cabecera de sección
+    GlowCard.js                  → Tarjeta con efecto glow
+    SectionHeader.js             → Cabecera de sección
 ```
 
-## ¿Problemas?
+## Variables de entorno
 
-- Si `npm install` da errores, prueba con `npm install --legacy-peer-deps`
-- Si el build falla, asegúrate de tener la sesión de Expo activa con `eas whoami`
+| Variable     | Requerida | Descripción                              |
+|-------------|-----------|------------------------------------------|
+| `JWT_SECRET` | Sí        | Clave para firmar tokens JWT             |
+| `PORT`       | No        | Puerto del servidor (defecto: 3000)      |
+
+## Solución de problemas
+
+- Si `npm install` da errores: prueba con `npm install --legacy-peer-deps`
+- Si el build falla: comprueba la sesión con `eas whoami`
+- Si el servidor no arranca: asegúrate de haber definido `JWT_SECRET`

@@ -25,6 +25,7 @@ import GlowCard from '../components/GlowCard';
 import SectionHeader from '../components/SectionHeader';
 import CategoryImage from '../components/CategoryImage';
 import EmojiPicker from '../components/EmojiPicker';
+import HintTooltip from '../components/HintTooltip';
 
 const BLANK = {
   name: '',
@@ -173,7 +174,11 @@ export default function RecurringScreen() {
   const confirmDelete = (item) => {
     Alert.alert('¿Eliminar?', `Se eliminará "${item.name}" de los compromisos fijos.`, [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Eliminar', style: 'destructive', onPress: () => { notifyWarning(); deleteRecurring(item.id); } },
+      { text: 'Eliminar', style: 'destructive', onPress: async () => {
+        notifyWarning();
+        try { await deleteRecurring(item.id); }
+        catch (_) { Alert.alert('Error', 'No se pudo eliminar. Comprueba la conexión.'); }
+      }},
     ]);
   };
 
@@ -215,7 +220,10 @@ export default function RecurringScreen() {
   const confirmDeleteSt = (item) => {
     Alert.alert('¿Eliminar?', `Se eliminará la transferencia automática "${item.name}".`, [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Eliminar', style: 'destructive', onPress: () => deleteSavingsTransfer(item.id) },
+      { text: 'Eliminar', style: 'destructive', onPress: async () => {
+        try { await deleteSavingsTransfer(item.id); }
+        catch (_) { Alert.alert('Error', 'No se pudo eliminar. Comprueba la conexión.'); }
+      }},
     ]);
   };
 
@@ -291,7 +299,10 @@ export default function RecurringScreen() {
   const confirmDeleteFi = (item) => {
     Alert.alert('¿Eliminar?', `Se eliminará "${item.name}". Los cargos ya aplicados permanecerán.`, [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Eliminar', style: 'destructive', onPress: () => deleteFinancedItem(item.id) },
+      { text: 'Eliminar', style: 'destructive', onPress: async () => {
+        try { await deleteFinancedItem(item.id); }
+        catch (_) { Alert.alert('Error', 'No se pudo eliminar. Comprueba la conexión.'); }
+      }},
     ]);
   };
 
@@ -378,7 +389,10 @@ export default function RecurringScreen() {
   const confirmDeleteDebt = (item) => {
     Alert.alert('¿Eliminar deuda?', `Se eliminará "${item.name}". Los pagos ya registrados permanecerán.`, [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Eliminar', style: 'destructive', onPress: () => deleteDebt(item.id) },
+      { text: 'Eliminar', style: 'destructive', onPress: async () => {
+        try { await deleteDebt(item.id); }
+        catch (_) { Alert.alert('Error', 'No se pudo eliminar. Comprueba la conexión.'); }
+      }},
     ]);
   };
 
@@ -489,7 +503,10 @@ export default function RecurringScreen() {
   const confirmDeleteLoan = (item) => {
     Alert.alert('¿Eliminar préstamo?', `Se eliminará "${item.name}". Los cobros ya registrados permanecerán.`, [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Eliminar', style: 'destructive', onPress: () => deleteLoan(item.id) },
+      { text: 'Eliminar', style: 'destructive', onPress: async () => {
+        try { await deleteLoan(item.id); }
+        catch (_) { Alert.alert('Error', 'No se pudo eliminar. Comprueba la conexión.'); }
+      }},
     ]);
   };
 
@@ -527,15 +544,21 @@ export default function RecurringScreen() {
 
         <View style={styles.body}>
           {/* Fijos */}
-          <SectionHeader
-            title="MIS FIJOS"
-            right={
-              <TouchableOpacity onPress={() => { setForm(BLANK); setShowModal(true); }} style={styles.addBtn}>
-                <Ionicons name="add" size={16} color={COLORS.primary} />
-                <Text style={styles.addBtnText}>AÑADIR</Text>
-              </TouchableOpacity>
-            }
-          />
+          <View style={{ position: 'relative' }}>
+            <SectionHeader
+              title="MIS FIJOS"
+              right={
+                <TouchableOpacity onPress={() => { setForm(BLANK); setShowModal(true); }} style={styles.addBtn}>
+                  <Ionicons name="add" size={16} color={COLORS.primary} />
+                  <Text style={styles.addBtnText}>AÑADIR</Text>
+                </TouchableOpacity>
+              }
+            />
+            <HintTooltip
+              hintKey="recurring_hint"
+              text="Registra tus gastos fijos mensuales (alquiler, suscripciones...). Nova los descuenta automáticamente de tu dinero libre."
+            />
+          </View>
 
           {recurringItems.length === 0 ? (
             <TouchableOpacity style={styles.emptyState} onPress={() => setShowModal(true)} activeOpacity={0.8}>

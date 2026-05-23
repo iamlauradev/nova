@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  Modal, TextInput, Alert, KeyboardAvoidingView, Platform, FlatList,
+  TextInput, Alert, Modal, KeyboardAvoidingView, Platform,
 } from 'react-native';
+import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRoute } from '@react-navigation/native';
@@ -14,10 +15,14 @@ import { useToast } from '../context/ToastContext';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import GlowCard from '../components/GlowCard';
-import { Swipeable } from 'react-native-gesture-handler';
+import { Swipeable, GestureHandlerRootView } from 'react-native-gesture-handler';
+import BottomSheet, { BottomSheetScrollView, BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import EmojiPicker from '../components/EmojiPicker';
 import DateField from '../components/DateField';
 import CategoryImage from '../components/CategoryImage';
+import { suggestCategory } from '../utils/autoCategory';
+import NumericKeypad from '../components/NumericKeypad';
+import ExpandableFAB from '../components/ExpandableFAB';
 
 // ─── Date helpers ──────────────────────────────────────────────────────────────
 const todayStr = () => {
@@ -76,6 +81,8 @@ const BLANK_FORM = {
   accountId: '',
   date: todayStr(),
   notes: '',
+  tags: '',
+  splits: [],
 };
 
 const BLANK_TRANSFER = {
@@ -114,15 +121,23 @@ export default function TransactionsScreen() {
   const [search,         setSearch]         = useState('');
   const [visibleCount,   setVisibleCount]   = useState(PAGE_SIZE);
   const [showSearch,     setShowSearch]     = useState(false);
+  const [showImport,     setShowImport]     = useState(false);
+  const [importText,     setImportText]     = useState('');
+  const [importResults,  setImportResults]  = useState(null); // { ok, errors }
 
-  // ── Modal state ──────────────────────────────────────────────────────────
-  const [showModal,        setShowModal]        = useState(false);
-  const [editTarget,       setEditTarget]       = useState(null);
-  const [form,             setForm]             = useState(BLANK_FORM);
-  const [showTransferModal,setShowTransferModal] = useState(false);
-  const [transferForm,     setTransferForm]     = useState(BLANK_TRANSFER);
-  const [showCatModal,     setShowCatModal]     = useState(false);
-  const [newCat,           setNewCat]           = useState(BLANK_CAT);
+  // ── BottomSheet refs ─────────────────────────────────────────────────────
+  const txSheetRef       = React.useRef(null);
+  const transferSheetRef = React.useRef(null);
+  const catSheetRef      = React.useRef(null);
+  const TX_SNAP      = React.useMemo(() => ['92%'], []);
+  const TRANSFER_SNAP = React.useMemo(() => ['70%'], []);
+  const CAT_SNAP     = React.useMemo(() => ['60%'], []);
+
+  // ── Form state ────────────────────────────────────────────────────────────
+  const [editTarget,   setEditTarget]   = useState(null);
+  const [form,         setForm]         = useState(BLANK_FORM);
+  const [transferForm, setTransferForm] = useState(BLANK_TRANSFER);
+  const [newCat,       setNewCat]       = useState(BLANK_CAT);
 
   // ── Category picker group ────────────────────────────────────────────────
   const [catGroupFilter, setCatGroupFilter] = useState(null);
@@ -131,11 +146,11 @@ export default function TransactionsScreen() {
     if (route.params?.openAdd) {
       if (route.params.openAdd === 'transfer') {
         setTransferForm(BLANK_TRANSFER);
-        setShowTransferModal(true);
+        transferSheetRef.current?.expand();
       } else {
         setEditTarget(null);
         setForm({ ...BLANK_FORM, type: route.params.openAdd });
-        setShowModal(true);
+        txSheetRef.current?.expand();
       }
     }
     if (route.params?.search) {
@@ -191,7 +206,10 @@ export default function TransactionsScreen() {
   }, [filtered]);
 
   // ── Handlers ─────────────────────────────────────────────────────────────
-  const openAdd = () => { setEditTarget(null); setForm(BLANK_FORM); setCatGroupFilter(null); setShowModal(true); };
+  const openAdd = () => {
+    setEditTarget(null); setForm(BLANK_FORM); setCatGroupFilter(null);
+    txSheetRef.current?.expand();
+  };
 
   const openEdit = (tx) => {
     setEditTarget(tx);
@@ -203,11 +221,16 @@ export default function TransactionsScreen() {
       accountId: tx.accountId,
       date: isoToDisplay(tx.date),
       notes: tx.notes || '',
+      tags: tx.tags || '',
+      splits: (() => { try { return tx.splits ? (typeof tx.splits === 'string' ? JSON.parse(tx.splits) : tx.splits) : []; } catch { return []; } })(),
     });
-    setShowModal(true);
+    txSheetRef.current?.expand();
   };
 
-  const closeModal = () => { setShowModal(false); setEditTarget(null); setForm(BLANK_FORM); };
+  const closeModal = () => {
+    txSheetRef.current?.close();
+    setEditTarget(null); setForm(BLANK_FORM);
+  };
 
   const handleSave = () => {
     const amount = parseAmount(form.amount);
@@ -222,6 +245,8 @@ export default function TransactionsScreen() {
       accountId: form.accountId,
       date: parseDate(form.date),
       notes: form.notes.trim(),
+      tags: form.tags.trim(),
+      splits: form.splits.length > 0 ? form.splits : undefined,
     };
     if (editTarget) { editTransaction(editTarget.id, payload); showToast('Movimiento actualizado'); }
     else {
@@ -269,7 +294,7 @@ export default function TransactionsScreen() {
     notifySuccess();
     showToast('Transferencia guardada ✓');
     setTransferForm(BLANK_TRANSFER);
-    setShowTransferModal(false);
+    transferSheetRef.current?.close();
   };
 
   const handleAddCategory = async () => {
@@ -279,7 +304,7 @@ export default function TransactionsScreen() {
       icon: newCat.icon,
     });
     setNewCat(BLANK_CAT);
-    setShowCatModal(false);
+    catSheetRef.current?.close();
   };
 
   const confirmDelete = (tx) => {
@@ -327,6 +352,52 @@ export default function TransactionsScreen() {
     }
   };
 
+  const handleImportCSV = async () => {
+    const lines = importText.trim().split('\n').filter(Boolean);
+    if (lines.length < 2) return Alert.alert('Error', 'El texto pegado no contiene filas de datos');
+
+    const allCats = [...(categories.income || []), ...(categories.expense || [])];
+    let ok = 0;
+    const errors = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const cols = lines[i].split(';').map(c => c.trim().replace(/^"|"$/g, ''));
+      if (cols.length < 4) { errors.push(`Fila ${i}: formato incorrecto`); continue; }
+
+      const [rawDate, rawType, rawAmount, description, catName, accName, notes] = cols;
+
+      const type = rawType === 'Ingreso' ? 'income' : rawType === 'Gasto' ? 'expense' : null;
+      if (!type) { errors.push(`Fila ${i}: tipo desconocido "${rawType}"`); continue; }
+
+      const amount = parseAmount(rawAmount);
+      if (!amount || amount <= 0) { errors.push(`Fila ${i}: importe inválido "${rawAmount}"`); continue; }
+
+      const [y, m, d] = (rawDate || '').split('-');
+      const date = y && m && d ? `${y}-${m}-${d}` : new Date().toISOString().split('T')[0];
+
+      const acc = accounts.find(a => a.name.toLowerCase() === (accName || '').toLowerCase());
+      if (!acc) { errors.push(`Fila ${i}: cuenta no encontrada "${accName}"`); continue; }
+
+      const cat = allCats.find(c => c.name.toLowerCase() === (catName || '').toLowerCase());
+
+      try {
+        await addTransaction({
+          type, amount, date,
+          description: description || '',
+          accountId: acc.id,
+          category: cat?.id || '',
+          notes: notes || '',
+          tags: '',
+        });
+        ok++;
+      } catch (e) {
+        errors.push(`Fila ${i}: ${e.message}`);
+      }
+    }
+
+    setImportResults({ ok, errors });
+  };
+
   const togglePanel = (panel) => setActivePanel(prev => prev === panel ? null : panel);
 
   const allCatsForFilter = useMemo(() => {
@@ -356,7 +427,7 @@ export default function TransactionsScreen() {
     : (catGroups[effectiveGroup] || []);
 
   return (
-    <View style={styles.bg}>
+    <GestureHandlerRootView style={styles.bg}>
 
       {/* ── Top bar: search ── */}
       {showSearch && (
@@ -442,10 +513,13 @@ export default function TransactionsScreen() {
             );
           })}
 
-          {/* Export + search icons */}
+          {/* Export / Import / search icons */}
           <View style={styles.dropdownActions}>
             <TouchableOpacity style={styles.iconBtn} onPress={exportCSV}>
               <Ionicons name="download-outline" size={14} color={COLORS.textDim} />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.iconBtn} onPress={() => { setImportText(''); setImportResults(null); setShowImport(true); }}>
+              <Ionicons name="cloud-upload-outline" size={14} color={COLORS.textDim} />
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.iconBtn}
@@ -559,9 +633,10 @@ export default function TransactionsScreen() {
           <Text style={styles.emptyText}>Sin movimientos</Text>
         </View>
       ) : (
-        <FlatList
+        <FlashList
           data={visibleTxs}
           keyExtractor={i => i.id}
+          estimatedItemSize={72}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
           onEndReached={() => { if (hasMore) setVisibleCount(c => c + PAGE_SIZE); }}
@@ -590,26 +665,45 @@ export default function TransactionsScreen() {
         />
       )}
 
-      {/* ── FABs ── */}
-      <View style={styles.fabGroup}>
-        <TouchableOpacity
-          style={[styles.fab, styles.fabSecondary]}
-          onPress={() => { setTransferForm(BLANK_TRANSFER); setShowTransferModal(true); }}
-          activeOpacity={0.85}
-        >
-          <Ionicons name="swap-horizontal" size={22} color={COLORS.gold} />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.fab} onPress={openAdd} activeOpacity={0.85}>
-          <LinearGradient colors={[COLORS.primary, COLORS.primaryDark]} style={StyleSheet.absoluteFill} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} />
-          <Ionicons name="add" size={28} color={COLORS.white} />
-        </TouchableOpacity>
-      </View>
+      {/* ── FAB expandible ── */}
+      <ExpandableFAB
+        actions={[
+          {
+            icon: 'arrow-down-circle',
+            label: 'Gasto',
+            color: COLORS.expense,
+            onPress: () => { setEditTarget(null); setForm({ ...BLANK_FORM, type: 'expense' }); setCatGroupFilter(null); txSheetRef.current?.expand(); },
+          },
+          {
+            icon: 'arrow-up-circle',
+            label: 'Ingreso',
+            color: COLORS.income,
+            onPress: () => { setEditTarget(null); setForm({ ...BLANK_FORM, type: 'income' }); setCatGroupFilter(null); txSheetRef.current?.expand(); },
+          },
+          {
+            icon: 'swap-horizontal',
+            label: 'Transferir',
+            color: COLORS.gold,
+            onPress: () => { setTransferForm(BLANK_TRANSFER); transferSheetRef.current?.expand(); },
+          },
+        ]}
+      />
 
-      {/* ═══ Modal Transacción ═══ */}
-      <Modal visible={showModal} animationType="slide" transparent onRequestClose={closeModal}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalOverlay}>
-          <ScrollView style={styles.modalSheet} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
-            <View style={styles.handle} />
+      {/* ═══ Bottom Sheet Transacción ═══ */}
+      <BottomSheet
+        ref={txSheetRef}
+        index={-1}
+        snapPoints={TX_SNAP}
+        enablePanDownToClose
+        onClose={() => { setEditTarget(null); setForm(BLANK_FORM); }}
+        backgroundStyle={{ backgroundColor: COLORS.bgModal }}
+        handleIndicatorStyle={{ backgroundColor: COLORS.border }}
+        backdropComponent={(props) => (
+          <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.7} />
+        )}
+      >
+        <BottomSheetScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 4, paddingBottom: 48 }}>
             <Text style={styles.modalTitle}>
               {editTarget ? '[ EDITAR MOVIMIENTO ]' : '[ NUEVO MOVIMIENTO ]'}
             </Text>
@@ -635,13 +729,15 @@ export default function TransactionsScreen() {
             </View>
 
             <Text style={styles.fieldLabel}>IMPORTE (€)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="0,00"
-              placeholderTextColor={COLORS.textDim}
-              keyboardType="decimal-pad"
+            <View style={styles.amountDisplay}>
+              <Text style={[styles.amountDisplayText, !form.amount && styles.amountDisplayPlaceholder]}>
+                {form.amount || '0,00'}
+              </Text>
+              <Text style={styles.amountDisplayCurrency}>€</Text>
+            </View>
+            <NumericKeypad
               value={form.amount}
-              onChangeText={v => setForm(p => ({ ...p, amount: v }))}
+              onChange={v => setForm(p => ({ ...p, amount: v }))}
             />
 
             <Text style={styles.fieldLabel}>DESCRIPCIÓN (opcional)</Text>
@@ -650,7 +746,14 @@ export default function TransactionsScreen() {
               placeholder="Ej. Compra supermercado"
               placeholderTextColor={COLORS.textDim}
               value={form.description}
-              onChangeText={v => setForm(p => ({ ...p, description: v }))}
+              onChangeText={v => {
+                const suggested = suggestCategory(v);
+                setForm(p => ({
+                  ...p,
+                  description: v,
+                  category: !p.category && suggested ? suggested : p.category,
+                }));
+              }}
             />
 
             <DateField
@@ -689,7 +792,7 @@ export default function TransactionsScreen() {
             {/* ── Category picker ── */}
             <View style={styles.catLabelRow}>
               <Text style={styles.fieldLabel}>CATEGORÍA</Text>
-              <TouchableOpacity onPress={() => { setShowCatModal(true); }} style={styles.newCatBtn}>
+              <TouchableOpacity onPress={() => { catSheetRef.current?.expand(); }} style={styles.newCatBtn}>
                 <Ionicons name="add-circle-outline" size={14} color={COLORS.primaryLight} />
                 <Text style={styles.newCatBtnText}>NUEVA</Text>
               </TouchableOpacity>
@@ -738,34 +841,99 @@ export default function TransactionsScreen() {
               onChangeText={v => setForm(p => ({ ...p, notes: v }))}
             />
 
-            <View style={[styles.modalActions, { marginTop: 8, marginBottom: 48 }]}>
-              <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={closeModal}>
-                <Text style={styles.cancelBtnText}>CANCELAR</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalBtn, styles.confirmBtn]} onPress={handleSave}>
-                <LinearGradient colors={[COLORS.primary, COLORS.primaryDark]} style={StyleSheet.absoluteFill} />
-                <Text style={styles.confirmBtnText}>GUARDAR</Text>
+            <Text style={[styles.fieldLabel, { marginTop: 4 }]}>ETIQUETAS (opcional)</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="ej. vacaciones, trabajo, impuestos"
+              placeholderTextColor={COLORS.textDim}
+              value={form.tags}
+              onChangeText={v => setForm(p => ({ ...p, tags: v }))}
+              autoCapitalize="none"
+            />
+
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 }}>
+              <Text style={styles.fieldLabel}>DIVIDIR GASTO (opcional)</Text>
+              <TouchableOpacity
+                onPress={() => setForm(p => ({ ...p, splits: [...p.splits, { person: '', amount: '' }] }))}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+              >
+                <Ionicons name="add-circle-outline" size={16} color={COLORS.accent} />
+                <Text style={{ color: COLORS.accent, fontSize: 11, fontWeight: '700' }}>AÑADIR</Text>
               </TouchableOpacity>
             </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </Modal>
+            {form.splits.map((split, idx) => (
+              <View key={idx} style={{ flexDirection: 'row', gap: 8, marginBottom: 6 }}>
+                <TextInput
+                  style={[styles.input, { flex: 2 }]}
+                  placeholder="Persona"
+                  placeholderTextColor={COLORS.textDim}
+                  value={split.person}
+                  onChangeText={v => setForm(p => {
+                    const next = [...p.splits];
+                    next[idx] = { ...next[idx], person: v };
+                    return { ...p, splits: next };
+                  })}
+                />
+                <TextInput
+                  style={[styles.input, { flex: 1 }]}
+                  placeholder="€"
+                  placeholderTextColor={COLORS.textDim}
+                  keyboardType="decimal-pad"
+                  value={split.amount}
+                  onChangeText={v => setForm(p => {
+                    const next = [...p.splits];
+                    next[idx] = { ...next[idx], amount: v };
+                    return { ...p, splits: next };
+                  })}
+                />
+                <TouchableOpacity
+                  onPress={() => setForm(p => ({ ...p, splits: p.splits.filter((_, i) => i !== idx) }))}
+                  style={{ justifyContent: 'center', padding: 6 }}
+                >
+                  <Ionicons name="close-circle" size={18} color={COLORS.textDim} />
+                </TouchableOpacity>
+              </View>
+            ))}
 
-      {/* ═══ Modal Transferencia ═══ */}
-      <Modal visible={showTransferModal} animationType="slide" transparent onRequestClose={() => setShowTransferModal(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalOverlay}>
-          <View style={styles.modalSheetStatic}>
-            <View style={styles.handle} />
+          <View style={[styles.modalActions, { marginTop: 8, marginBottom: 8 }]}>
+            <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={closeModal}>
+              <Text style={styles.cancelBtnText}>CANCELAR</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.modalBtn, styles.confirmBtn]} onPress={handleSave}>
+              <LinearGradient colors={[COLORS.primary, COLORS.primaryDark]} style={StyleSheet.absoluteFill} />
+              <Text style={styles.confirmBtnText}>GUARDAR</Text>
+            </TouchableOpacity>
+          </View>
+        </BottomSheetScrollView>
+      </BottomSheet>
+
+      {/* ═══ Bottom Sheet Transferencia ═══ */}
+      <BottomSheet
+        ref={transferSheetRef}
+        index={-1}
+        snapPoints={TRANSFER_SNAP}
+        enablePanDownToClose
+        onClose={() => setTransferForm(BLANK_TRANSFER)}
+        backgroundStyle={{ backgroundColor: COLORS.bgModal }}
+        handleIndicatorStyle={{ backgroundColor: COLORS.border }}
+        backdropComponent={(props) => (
+          <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.7} />
+        )}
+      >
+        <BottomSheetScrollView showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 4, paddingBottom: 40 }}>
             <Text style={styles.modalTitle}>[ TRANSFERENCIA ]</Text>
 
             <Text style={styles.fieldLabel}>IMPORTE (€)</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="0,00"
-              placeholderTextColor={COLORS.textDim}
-              keyboardType="decimal-pad"
+            <View style={styles.amountDisplay}>
+              <Text style={[styles.amountDisplayText, !transferForm.amount && styles.amountDisplayPlaceholder]}>
+                {transferForm.amount || '0,00'}
+              </Text>
+              <Text style={styles.amountDisplayCurrency}>€</Text>
+            </View>
+            <NumericKeypad
               value={transferForm.amount}
-              onChangeText={v => setTransferForm(p => ({ ...p, amount: v }))}
+              onChange={v => setTransferForm(p => ({ ...p, amount: v }))}
             />
 
             <Text style={styles.fieldLabel}>DESCRIPCIÓN (opcional)</Text>
@@ -813,24 +981,33 @@ export default function TransactionsScreen() {
               </View>
             </ScrollView>
 
-            <View style={[styles.modalActions, { marginBottom: 8 }]}>
-              <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => setShowTransferModal(false)}>
-                <Text style={styles.cancelBtnText}>CANCELAR</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalBtn, styles.confirmBtn]} onPress={handleAddTransfer}>
-                <LinearGradient colors={[COLORS.gold, '#b8860b']} style={StyleSheet.absoluteFill} />
-                <Text style={styles.confirmBtnText}>TRANSFERIR</Text>
-              </TouchableOpacity>
-            </View>
+          <View style={[styles.modalActions, { marginBottom: 8 }]}>
+            <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => transferSheetRef.current?.close()}>
+              <Text style={styles.cancelBtnText}>CANCELAR</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.modalBtn, styles.confirmBtn]} onPress={handleAddTransfer}>
+              <LinearGradient colors={[COLORS.gold, '#b8860b']} style={StyleSheet.absoluteFill} />
+              <Text style={styles.confirmBtnText}>TRANSFERIR</Text>
+            </TouchableOpacity>
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
+        </BottomSheetScrollView>
+      </BottomSheet>
 
-      {/* ═══ Modal Nueva Categoría (numbered image picker) ═══ */}
-      <Modal visible={showCatModal} animationType="slide" transparent onRequestClose={() => setShowCatModal(false)}>
-        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalOverlay}>
-          <View style={styles.catModalSheet}>
-            <View style={styles.handle} />
+      {/* ═══ Bottom Sheet Nueva Categoría ═══ */}
+      <BottomSheet
+        ref={catSheetRef}
+        index={-1}
+        snapPoints={CAT_SNAP}
+        enablePanDownToClose
+        onClose={() => setNewCat(BLANK_CAT)}
+        backgroundStyle={{ backgroundColor: COLORS.bgModal }}
+        handleIndicatorStyle={{ backgroundColor: COLORS.border }}
+        backdropComponent={(props) => (
+          <BottomSheetBackdrop {...props} disappearsOnIndex={-1} appearsOnIndex={0} opacity={0.7} />
+        )}
+      >
+        <BottomSheetScrollView showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 4, paddingBottom: 40 }}>
             <Text style={styles.modalTitle}>[ NUEVA CATEGORÍA ]</Text>
 
             <Text style={styles.fieldLabel}>NOMBRE</Text>
@@ -850,19 +1027,86 @@ export default function TransactionsScreen() {
               />
             </View>
 
-            <View style={[styles.modalActions, { marginTop: 12 }]}>
-              <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => { setShowCatModal(false); setNewCat(BLANK_CAT); }}>
-                <Text style={styles.cancelBtnText}>CANCELAR</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalBtn, styles.confirmBtn]} onPress={handleAddCategory}>
-                <LinearGradient colors={[COLORS.primary, COLORS.primaryDark]} style={StyleSheet.absoluteFill} />
-                <Text style={styles.confirmBtnText}>GUARDAR</Text>
-              </TouchableOpacity>
-            </View>
+          <View style={[styles.modalActions, { marginTop: 12 }]}>
+            <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => { catSheetRef.current?.close(); setNewCat(BLANK_CAT); }}>
+              <Text style={styles.cancelBtnText}>CANCELAR</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.modalBtn, styles.confirmBtn]} onPress={handleAddCategory}>
+              <LinearGradient colors={[COLORS.primary, COLORS.primaryDark]} style={StyleSheet.absoluteFill} />
+              <Text style={styles.confirmBtnText}>GUARDAR</Text>
+            </TouchableOpacity>
+          </View>
+        </BottomSheetScrollView>
+      </BottomSheet>
+
+      {/* ── Modal Importar CSV ── */}
+      <Modal
+        visible={showImport}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowImport(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <View style={[styles.modalSheetStatic, { maxHeight: '85%' }]}>
+            <View style={styles.handle} />
+            <Text style={styles.modalTitle}>[ IMPORTAR CSV ]</Text>
+            <Text style={[styles.fieldLabel, { marginBottom: 4 }]}>
+              PEGA EL CSV AQUÍ (formato: Fecha;Tipo;Importe;Descripción;Categoría;Cuenta;Notas)
+            </Text>
+
+            {!importResults ? (
+              <>
+                <TextInput
+                  style={[styles.input, { minHeight: 180, textAlignVertical: 'top', paddingTop: 12, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', fontSize: 12 }]}
+                  placeholder={'2024-01-15;Gasto;1,50;Supermercado;Comida;Mi cuenta;notas\n2024-01-16;Ingreso;1500;Nómina;Salario;Mi cuenta;'}
+                  placeholderTextColor={COLORS.textDim}
+                  multiline
+                  value={importText}
+                  onChangeText={setImportText}
+                  autoCorrect={false}
+                  autoCapitalize="none"
+                />
+                <View style={[styles.modalActions, { marginTop: 8 }]}>
+                  <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => setShowImport(false)}>
+                    <Text style={styles.cancelBtnText}>CANCELAR</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.modalBtn, styles.confirmBtn]} onPress={handleImportCSV}>
+                    <LinearGradient colors={[COLORS.primary, COLORS.primaryDark]} style={StyleSheet.absoluteFill} />
+                    <Text style={styles.confirmBtnText}>IMPORTAR</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : (
+              <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+                <Text style={[styles.fieldLabel, { color: COLORS.income, marginBottom: 8 }]}>
+                  ✓ {importResults.ok} transacciones importadas
+                </Text>
+                {importResults.errors.length > 0 && (
+                  <>
+                    <Text style={[styles.fieldLabel, { color: COLORS.expense }]}>
+                      ✗ {importResults.errors.length} errores:
+                    </Text>
+                    {importResults.errors.map((e, i) => (
+                      <Text key={i} style={{ color: COLORS.textDim, fontSize: 11, marginBottom: 4 }}>{e}</Text>
+                    ))}
+                  </>
+                )}
+                <TouchableOpacity
+                  style={[styles.modalBtn, styles.confirmBtn, { marginTop: 16 }]}
+                  onPress={() => setShowImport(false)}
+                >
+                  <LinearGradient colors={[COLORS.primary, COLORS.primaryDark]} style={StyleSheet.absoluteFill} />
+                  <Text style={styles.confirmBtnText}>CERRAR</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            )}
           </View>
         </KeyboardAvoidingView>
       </Modal>
-    </View>
+    </GestureHandlerRootView>
   );
 }
 
@@ -928,6 +1172,14 @@ const TxItem = React.memo(function TxItem({ tx, accounts, categories, onEdit, on
         </Text>
         <Text style={styles.txDate}>{formatDate(tx.date)}</Text>
         {tx.notes ? <Text style={styles.txNotes} numberOfLines={1}>📝 {tx.notes}</Text> : null}
+        {tx.tags ? <Text style={styles.txNotes} numberOfLines={1}>🏷️ {tx.tags}</Text> : null}
+        {tx.splits && (() => {
+          try {
+            const s = typeof tx.splits === 'string' ? JSON.parse(tx.splits) : tx.splits;
+            if (s && s.length > 0) return <Text style={styles.txNotes} numberOfLines={1}>👥 {s.map(x => x.person || '?').join(', ')}</Text>;
+          } catch {}
+          return null;
+        })()}
       </View>
       <View style={styles.txRight}>
         <Text style={[styles.txAmount, { color: isTransferIn ? COLORS.income : isTransferOut ? COLORS.expense : isIncome ? COLORS.income : COLORS.expense }]}>
@@ -1088,6 +1340,14 @@ const styles = StyleSheet.create({
     borderRadius: 4, color: COLORS.text, paddingHorizontal: 14, paddingVertical: 12,
     fontSize: 15, marginBottom: 16,
   },
+  amountDisplay: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end',
+    backgroundColor: COLORS.bgCardLight, borderWidth: 1, borderColor: COLORS.border,
+    borderRadius: 4, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 8, gap: 6,
+  },
+  amountDisplayText: { color: COLORS.text, fontSize: 28, fontWeight: '800', letterSpacing: -0.5, flex: 1, textAlign: 'right' },
+  amountDisplayPlaceholder: { color: COLORS.textDim },
+  amountDisplayCurrency: { color: COLORS.textMuted, fontSize: 18, fontWeight: '600' },
   noAccountsText: { color: COLORS.expense, fontSize: 12, marginBottom: 16 },
   accountBalHint: { fontSize: 11, fontWeight: '700', marginBottom: 14, paddingHorizontal: 2 },
   typeToggle: { flexDirection: 'row', gap: 10, marginBottom: 20 },
