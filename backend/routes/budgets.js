@@ -5,7 +5,7 @@ const { auth } = require('../middleware/auth');
 const router = express.Router();
 
 router.get('/', auth, (req, res) => {
-  res.json(db.prepare('SELECT * FROM budgets WHERE userId=?').all(req.user.id));
+  res.json(db.prepare('SELECT * FROM budgets WHERE userId=? AND deletedAt IS NULL').all(req.user.id));
 });
 
 router.post('/', auth, (req, res) => {
@@ -23,7 +23,7 @@ router.post('/', auth, (req, res) => {
 });
 
 router.delete('/:id', auth, (req, res) => {
-  db.prepare('DELETE FROM budgets WHERE id=? AND userId=?').run(req.params.id, req.user.id);
+  db.prepare("UPDATE budgets SET deletedAt = datetime('now') WHERE id=? AND userId=?").run(req.params.id, req.user.id);
   res.json({ ok: true });
 });
 

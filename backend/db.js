@@ -180,6 +180,8 @@ const MIGRATIONS = [
   )` },
   // C12 — Split expenses: JSON array [{person, amount}]
   { name: '011_transactions_splits', sql: 'ALTER TABLE transactions ADD COLUMN splits TEXT DEFAULT NULL' },
+  { name: '012_recurring_deletedAt',  sql: 'ALTER TABLE recurringItems ADD COLUMN deletedAt TEXT DEFAULT NULL' },
+  { name: '013_budgets_deletedAt',    sql: 'ALTER TABLE budgets ADD COLUMN deletedAt TEXT DEFAULT NULL' },
 ];
 
 const appliedMigrations = new Set(
@@ -193,6 +195,7 @@ for (const { name, sql } of MIGRATIONS) {
     db.prepare('INSERT INTO schema_migrations (name) VALUES (?)').run(name);
     logger.info({ migration: name }, 'Migración aplicada');
   } catch (e) {
+    logger.warn({ migration: name, err: e.message }, 'Migración falló, marcando como aplicada');
     db.prepare('INSERT OR IGNORE INTO schema_migrations (name) VALUES (?)').run(name);
   }
 }

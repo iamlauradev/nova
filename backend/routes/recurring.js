@@ -5,7 +5,7 @@ const { auth } = require('../middleware/auth');
 const router = express.Router();
 
 router.get('/', auth, (req, res) => {
-  const items = db.prepare('SELECT * FROM recurringItems WHERE userId=?').all(req.user.id);
+  const items = db.prepare('SELECT * FROM recurringItems WHERE userId=? AND deletedAt IS NULL').all(req.user.id);
   res.json(items.map(r => ({ ...r, active: r.active === 1 })));
 });
 
@@ -33,7 +33,7 @@ router.put('/:id', auth, (req, res) => {
 });
 
 router.delete('/:id', auth, (req, res) => {
-  db.prepare('DELETE FROM recurringItems WHERE id=? AND userId=?').run(req.params.id, req.user.id);
+  db.prepare("UPDATE recurringItems SET deletedAt = datetime('now') WHERE id=? AND userId=?").run(req.params.id, req.user.id);
   res.json({ ok: true });
 });
 
