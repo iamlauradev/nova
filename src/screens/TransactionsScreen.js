@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
-  TextInput, Alert, Modal, KeyboardAvoidingView, Platform,
+  TextInput, Alert, Modal, KeyboardAvoidingView, Platform, FlatList,
 } from 'react-native';
-import { FlashList } from '@shopify/flash-list';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRoute } from '@react-navigation/native';
@@ -633,10 +632,9 @@ export default function TransactionsScreen() {
           <Text style={styles.emptyText}>Sin movimientos</Text>
         </View>
       ) : (
-        <FlashList
+        <FlatList
           data={visibleTxs}
           keyExtractor={i => i.id}
-          estimatedItemSize={72}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
           onEndReached={() => { if (hasMore) setVisibleCount(c => c + PAGE_SIZE); }}
