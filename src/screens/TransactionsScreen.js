@@ -145,7 +145,8 @@ export default function TransactionsScreen() {
   const [newCat,       setNewCat]       = useState(BLANK_CAT);
 
   // ── Category picker group ────────────────────────────────────────────────
-  const [catGroupFilter, setCatGroupFilter] = useState(null);
+  const [catGroupFilter,    setCatGroupFilter]    = useState(null);
+  const [groupDropdownOpen, setGroupDropdownOpen] = useState(false);
 
   useEffect(() => {
     if (route.params?.openAdd) {
@@ -214,7 +215,7 @@ export default function TransactionsScreen() {
 
   // ── Handlers ─────────────────────────────────────────────────────────────
   const openAdd = () => {
-    setEditTarget(null); setForm(BLANK_FORM); setCatGroupFilter(null);
+    setEditTarget(null); setForm(BLANK_FORM); setCatGroupFilter(null); setGroupDropdownOpen(false);
     setTxModalKey(k => k + 1);
     txSheetRef.current?.expand();
   };
@@ -232,13 +233,13 @@ export default function TransactionsScreen() {
       tags: tx.tags || '',
       splits: (() => { try { return tx.splits ? (typeof tx.splits === 'string' ? JSON.parse(tx.splits) : tx.splits) : []; } catch { return []; } })(),
     });
-    setTxModalKey(k => k + 1);
+    setTxModalKey(k => k + 1); setGroupDropdownOpen(false);
     txSheetRef.current?.expand();
   };
 
   const closeModal = () => {
     txSheetRef.current?.close();
-    setEditTarget(null); setForm(BLANK_FORM);
+    setEditTarget(null); setForm(BLANK_FORM); setGroupDropdownOpen(false);
   };
 
   const handleSave = () => {
@@ -711,7 +712,7 @@ export default function TransactionsScreen() {
         index={-1}
         snapPoints={TX_SNAP}
         enablePanDownToClose
-        onClose={() => { setEditTarget(null); setForm(BLANK_FORM); }}
+        onClose={() => { setEditTarget(null); setForm(BLANK_FORM); setGroupDropdownOpen(false); }}
         backgroundStyle={{ backgroundColor: COLORS.bgModal }}
         handleIndicatorStyle={{ backgroundColor: COLORS.border }}
         backdropComponent={(props) => (
@@ -733,7 +734,7 @@ export default function TransactionsScreen() {
                     backgroundColor: t === 'income' ? COLORS.incomeGlow : COLORS.expenseGlow,
                     borderColor: t === 'income' ? COLORS.income : COLORS.expense,
                   }]}
-                  onPress={() => { setForm(p => ({ ...p, type: t, category: '' })); setCatGroupFilter(null); }}
+                  onPress={() => { setForm(p => ({ ...p, type: t, category: '' })); setCatGroupFilter(null); setGroupDropdownOpen(false); }}
                 >
                   <Ionicons name={t === 'income' ? 'arrow-up-circle' : 'arrow-down-circle'} size={18}
                     color={form.type === t ? (t === 'income' ? COLORS.income : COLORS.expense) : COLORS.textDim} />
@@ -809,22 +810,46 @@ export default function TransactionsScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Group filter chips */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 10 }}>
-              <View style={{ flexDirection: 'row', gap: 6 }}>
-                {allGroupNames.map(g => (
-                  <TouchableOpacity
-                    key={g}
-                    style={[styles.groupChip, effectiveGroup === g && styles.groupChipActive]}
-                    onPress={() => setCatGroupFilter(g)}
-                  >
-                    <Text style={[styles.groupChipText, effectiveGroup === g && styles.groupChipTextActive]}>
-                      {g === 'ALL' ? 'Todos' : g}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+            {/* Group filter — dropdown selector (avoids horizontal scroll inside BottomSheet) */}
+            <TouchableOpacity
+              style={[styles.groupSelector, groupDropdownOpen && styles.groupSelectorOpen]}
+              onPress={() => setGroupDropdownOpen(o => !o)}
+              activeOpacity={0.75}
+            >
+              <Text style={styles.groupSelectorText} numberOfLines={1}>
+                {effectiveGroup === 'ALL' ? 'Todos los grupos' : effectiveGroup}
+              </Text>
+              <Ionicons
+                name={groupDropdownOpen ? 'chevron-up' : 'chevron-down'}
+                size={12}
+                color={groupDropdownOpen ? COLORS.primaryLight : COLORS.textDim}
+              />
+            </TouchableOpacity>
+
+            {groupDropdownOpen && (
+              <View style={styles.groupDropdown}>
+                {allGroupNames.map((g, idx) => {
+                  const isActive = effectiveGroup === g;
+                  return (
+                    <TouchableOpacity
+                      key={g}
+                      style={[
+                        styles.groupDropdownItem,
+                        idx > 0 && styles.groupDropdownItemBorder,
+                        isActive && styles.groupDropdownItemActive,
+                      ]}
+                      onPress={() => { setCatGroupFilter(g); setGroupDropdownOpen(false); }}
+                      activeOpacity={0.75}
+                    >
+                      <Text style={[styles.groupDropdownItemText, isActive && styles.groupDropdownItemTextActive]}>
+                        {g === 'ALL' ? 'Todos' : g}
+                      </Text>
+                      {isActive && <Ionicons name="checkmark" size={13} color={COLORS.primaryLight} />}
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
-            </ScrollView>
+            )}
 
             <View style={styles.catGrid}>
               {visibleCats.map(c => (
@@ -1379,13 +1404,36 @@ const styles = StyleSheet.create({
   newCatBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   newCatBtnText: { color: COLORS.primaryLight, fontSize: 10, fontWeight: '700', letterSpacing: 1 },
 
-  groupChip: {
-    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20,
+  groupSelector: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 12, paddingVertical: 9,
     borderWidth: 1, borderColor: COLORS.borderSubtle, backgroundColor: COLORS.bgCardLight,
+    borderRadius: 6, marginBottom: 6,
   },
-  groupChipActive: { borderColor: COLORS.primary, backgroundColor: COLORS.primaryGlow },
-  groupChipText: { color: COLORS.textDim, fontSize: 10, fontWeight: '600' },
-  groupChipTextActive: { color: COLORS.primaryLight },
+  groupSelectorOpen: {
+    borderColor: COLORS.primary, backgroundColor: COLORS.primaryGlow,
+    borderBottomLeftRadius: 0, borderBottomRightRadius: 0, marginBottom: 0,
+  },
+  groupSelectorText: {
+    color: COLORS.textMuted, fontSize: 11, fontWeight: '600', flex: 1,
+  },
+  groupDropdown: {
+    borderWidth: 1, borderTopWidth: 0,
+    borderColor: COLORS.primary,
+    borderBottomLeftRadius: 6, borderBottomRightRadius: 6,
+    backgroundColor: COLORS.bgCardLight,
+    marginBottom: 10, overflow: 'hidden',
+  },
+  groupDropdownItem: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 12, paddingVertical: 10,
+  },
+  groupDropdownItemBorder: {
+    borderTopWidth: 1, borderTopColor: COLORS.borderSubtle,
+  },
+  groupDropdownItemActive: { backgroundColor: COLORS.primaryGlow },
+  groupDropdownItemText: { color: COLORS.textMuted, fontSize: 11, fontWeight: '600' },
+  groupDropdownItemTextActive: { color: COLORS.primaryLight },
 
   catGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 },
   catChip: {
