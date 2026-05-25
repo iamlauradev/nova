@@ -132,6 +132,12 @@ export default function TransactionsScreen() {
   const TRANSFER_SNAP = React.useMemo(() => ['70%'], []);
   const CAT_SNAP     = React.useMemo(() => ['60%'], []);
 
+  // ── Uncontrolled amount refs (avoid re-rendering the whole form on each key) ─
+  const amountRef         = React.useRef(null);
+  const transferAmountRef = React.useRef(null);
+  const [txModalKey,       setTxModalKey]       = useState(0);
+  const [transferModalKey, setTransferModalKey] = useState(0);
+
   // ── Form state ────────────────────────────────────────────────────────────
   const [editTarget,   setEditTarget]   = useState(null);
   const [form,         setForm]         = useState(BLANK_FORM);
@@ -145,10 +151,12 @@ export default function TransactionsScreen() {
     if (route.params?.openAdd) {
       if (route.params.openAdd === 'transfer') {
         setTransferForm(BLANK_TRANSFER);
+        setTransferModalKey(k => k + 1);
         transferSheetRef.current?.expand();
       } else {
         setEditTarget(null);
         setForm({ ...BLANK_FORM, type: route.params.openAdd });
+        setTxModalKey(k => k + 1);
         txSheetRef.current?.expand();
       }
     }
@@ -207,6 +215,7 @@ export default function TransactionsScreen() {
   // ── Handlers ─────────────────────────────────────────────────────────────
   const openAdd = () => {
     setEditTarget(null); setForm(BLANK_FORM); setCatGroupFilter(null);
+    setTxModalKey(k => k + 1);
     txSheetRef.current?.expand();
   };
 
@@ -223,6 +232,7 @@ export default function TransactionsScreen() {
       tags: tx.tags || '',
       splits: (() => { try { return tx.splits ? (typeof tx.splits === 'string' ? JSON.parse(tx.splits) : tx.splits) : []; } catch { return []; } })(),
     });
+    setTxModalKey(k => k + 1);
     txSheetRef.current?.expand();
   };
 
@@ -232,7 +242,7 @@ export default function TransactionsScreen() {
   };
 
   const handleSave = () => {
-    const amount = parseAmount(form.amount);
+    const amount = parseAmount(amountRef.current?.getValue() || '');
     if (!amount || amount <= 0) return Alert.alert('Error', 'Introduce un importe válido (ej: 1,65)');
     if (!form.accountId) return Alert.alert('Error', 'Selecciona una cuenta');
     if (!form.category) return Alert.alert('Error', 'Selecciona una categoría');
@@ -277,7 +287,7 @@ export default function TransactionsScreen() {
   };
 
   const handleAddTransfer = () => {
-    const amount = parseAmount(transferForm.amount);
+    const amount = parseAmount(transferAmountRef.current?.getValue() || '');
     if (!amount || amount <= 0) return Alert.alert('Error', 'Introduce un importe válido');
     if (!transferForm.fromAccountId) return Alert.alert('Error', 'Selecciona cuenta origen');
     if (!transferForm.toAccountId) return Alert.alert('Error', 'Selecciona cuenta destino');
@@ -450,7 +460,7 @@ export default function TransactionsScreen() {
 
       {/* ── Filter bar ── */}
       <View style={styles.filterSection}>
-        {/* 4 dropdown headers + actions */}
+        {/* 4 dropdown chips + search */}
         <View style={styles.dropdownRow}>
           {[
             {
@@ -467,7 +477,7 @@ export default function TransactionsScreen() {
             },
             {
               key:       'categoria',
-              label:     'CATEGORÍA',
+              label:     'CATEG.',
               value:     categoryFilter
                 ? (allCatsForFilter.find(c => c.id === categoryFilter)?.name || 'TODAS')
                 : 'TODAS',
@@ -494,7 +504,7 @@ export default function TransactionsScreen() {
                 onPress={() => togglePanel(d.key)}
                 activeOpacity={0.75}
               >
-                <Text style={styles.dropdownLabel}>{d.label}</Text>
+                <Text style={styles.dropdownLabel} numberOfLines={1}>{d.label}</Text>
                 <View style={styles.dropdownValueRow}>
                   <Text
                     style={[styles.dropdownValue, (d.hasActive || isOpen) && styles.dropdownValueActive]}
@@ -512,25 +522,17 @@ export default function TransactionsScreen() {
             );
           })}
 
-          {/* Export / Import / search icons */}
-          <View style={styles.dropdownActions}>
-            <TouchableOpacity style={styles.iconBtn} onPress={exportCSV}>
-              <Ionicons name="download-outline" size={14} color={COLORS.textDim} />
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.iconBtn} onPress={() => { setImportText(''); setImportResults(null); setShowImport(true); }}>
-              <Ionicons name="cloud-upload-outline" size={14} color={COLORS.textDim} />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.iconBtn}
-              onPress={() => { setShowSearch(s => !s); if (showSearch) setSearch(''); }}
-            >
-              <Ionicons
-                name={showSearch ? 'close' : 'search'}
-                size={14}
-                color={showSearch ? COLORS.primaryLight : COLORS.textDim}
-              />
-            </TouchableOpacity>
-          </View>
+          {/* Search toggle */}
+          <TouchableOpacity
+            style={styles.iconBtn}
+            onPress={() => { setShowSearch(s => !s); if (showSearch) setSearch(''); }}
+          >
+            <Ionicons
+              name={showSearch ? 'close' : 'search'}
+              size={14}
+              color={showSearch ? COLORS.primaryLight : COLORS.textDim}
+            />
+          </TouchableOpacity>
         </View>
 
         {/* Expanded panel */}
@@ -623,6 +625,22 @@ export default function TransactionsScreen() {
             )}
           </View>
         )}
+
+        {/* Data tools: export / import */}
+        <View style={styles.toolsRow}>
+          <TouchableOpacity style={styles.toolBtn} onPress={exportCSV}>
+            <Ionicons name="download-outline" size={12} color={COLORS.textDim} />
+            <Text style={styles.toolBtnText}>EXPORTAR CSV</Text>
+          </TouchableOpacity>
+          <View style={styles.toolDivider} />
+          <TouchableOpacity
+            style={styles.toolBtn}
+            onPress={() => { setImportText(''); setImportResults(null); setShowImport(true); }}
+          >
+            <Ionicons name="cloud-upload-outline" size={12} color={COLORS.textDim} />
+            <Text style={styles.toolBtnText}>IMPORTAR CSV</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* ── List ── */}
@@ -682,7 +700,7 @@ export default function TransactionsScreen() {
             icon: 'swap-horizontal',
             label: 'Transferir',
             color: COLORS.gold,
-            onPress: () => { setTransferForm(BLANK_TRANSFER); transferSheetRef.current?.expand(); },
+            onPress: () => { setTransferForm(BLANK_TRANSFER); setTransferModalKey(k => k + 1); transferSheetRef.current?.expand(); },
           },
         ]}
       />
@@ -727,15 +745,10 @@ export default function TransactionsScreen() {
             </View>
 
             <Text style={styles.fieldLabel}>IMPORTE (€)</Text>
-            <View style={styles.amountDisplay}>
-              <Text style={[styles.amountDisplayText, !form.amount && styles.amountDisplayPlaceholder]}>
-                {form.amount || '0,00'}
-              </Text>
-              <Text style={styles.amountDisplayCurrency}>€</Text>
-            </View>
             <NumericKeypad
-              value={form.amount}
-              onChange={v => setForm(p => ({ ...p, amount: v }))}
+              ref={amountRef}
+              key={txModalKey}
+              initialValue={editTarget ? String(editTarget.amount).replace('.', ',') : ''}
             />
 
             <Text style={styles.fieldLabel}>DESCRIPCIÓN (opcional)</Text>
@@ -923,15 +936,10 @@ export default function TransactionsScreen() {
             <Text style={styles.modalTitle}>[ TRANSFERENCIA ]</Text>
 
             <Text style={styles.fieldLabel}>IMPORTE (€)</Text>
-            <View style={styles.amountDisplay}>
-              <Text style={[styles.amountDisplayText, !transferForm.amount && styles.amountDisplayPlaceholder]}>
-                {transferForm.amount || '0,00'}
-              </Text>
-              <Text style={styles.amountDisplayCurrency}>€</Text>
-            </View>
             <NumericKeypad
-              value={transferForm.amount}
-              onChange={v => setTransferForm(p => ({ ...p, amount: v }))}
+              ref={transferAmountRef}
+              key={transferModalKey}
+              initialValue=""
             />
 
             <Text style={styles.fieldLabel}>DESCRIPCIÓN (opcional)</Text>
@@ -1243,11 +1251,25 @@ const styles = StyleSheet.create({
     color: COLORS.textMuted, fontSize: 9, fontWeight: '600', flex: 1,
   },
   dropdownValueActive: { color: COLORS.primaryLight },
-  dropdownActions: {
-    flexDirection: 'row', gap: 3, alignItems: 'center',
-  },
   iconBtn: {
     padding: 6, borderRadius: 4, borderWidth: 1, borderColor: COLORS.borderSubtle,
+  },
+
+  // Tools row (import / export)
+  toolsRow: {
+    flexDirection: 'row', alignItems: 'center',
+    borderTopWidth: 1, borderTopColor: COLORS.borderSubtle,
+    paddingVertical: 5,
+  },
+  toolBtn: {
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 5, paddingVertical: 5,
+  },
+  toolBtnText: {
+    color: COLORS.textDim, fontSize: 9, fontWeight: '700', letterSpacing: 1,
+  },
+  toolDivider: {
+    width: 1, height: 14, backgroundColor: COLORS.borderSubtle,
   },
 
   // Expanded dropdown panel
@@ -1338,14 +1360,6 @@ const styles = StyleSheet.create({
     borderRadius: 4, color: COLORS.text, paddingHorizontal: 14, paddingVertical: 12,
     fontSize: 15, marginBottom: 16,
   },
-  amountDisplay: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end',
-    backgroundColor: COLORS.bgCardLight, borderWidth: 1, borderColor: COLORS.border,
-    borderRadius: 4, paddingHorizontal: 14, paddingVertical: 12, marginBottom: 8, gap: 6,
-  },
-  amountDisplayText: { color: COLORS.text, fontSize: 28, fontWeight: '800', letterSpacing: -0.5, flex: 1, textAlign: 'right' },
-  amountDisplayPlaceholder: { color: COLORS.textDim },
-  amountDisplayCurrency: { color: COLORS.textMuted, fontSize: 18, fontWeight: '600' },
   noAccountsText: { color: COLORS.expense, fontSize: 12, marginBottom: 16 },
   accountBalHint: { fontSize: 11, fontWeight: '700', marginBottom: 14, paddingHorizontal: 2 },
   typeToggle: { flexDirection: 'row', gap: 10, marginBottom: 20 },

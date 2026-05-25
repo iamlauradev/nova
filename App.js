@@ -1,4 +1,5 @@
 import 'react-native-gesture-handler';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import React, { useRef, useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import {
@@ -384,18 +385,20 @@ export default function App() {
   }, []);
 
   return (
-    <ErrorBoundary>
-      <NetworkProvider>
-        <SafeAreaProvider>
-          <StatusBar style="light" />
-          <AuthProvider>
-            <RootNavigator />
-          </AuthProvider>
-          <OfflineBanner />
-          {!appActive && <PrivacyMask />}
-        </SafeAreaProvider>
-      </NetworkProvider>
-    </ErrorBoundary>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ErrorBoundary>
+        <NetworkProvider>
+          <SafeAreaProvider>
+            <StatusBar style="light" />
+            <AuthProvider>
+              <RootNavigator />
+            </AuthProvider>
+            <OfflineBanner />
+            {!appActive && <PrivacyMask />}
+          </SafeAreaProvider>
+        </NetworkProvider>
+      </ErrorBoundary>
+    </GestureHandlerRootView>
   );
 }
 
