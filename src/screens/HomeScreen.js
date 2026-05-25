@@ -369,7 +369,7 @@ export default function HomeScreen() {
               <Text style={styles.emptyText}>Añade tu primera cuenta</Text>
             </TouchableOpacity>
           ) : (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.accountScroll}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} nestedScrollEnabled contentContainerStyle={styles.accountScroll}>
               {mainAccounts.map(a => (
                 <AccountCard key={a.id} account={a} onPress={() => nav.navigate('Cuentas')} />
               ))}

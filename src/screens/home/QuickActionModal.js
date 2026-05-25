@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, Modal, TextInput, ScrollView,
   TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform,
@@ -9,15 +9,18 @@ import { COLORS } from '../../theme';
 import CategoryImage from '../../components/CategoryImage';
 
 // ── Quick amount-entry modal (expense or income) ──────────────────────────────
-// Estado de amount/accountId vive aquí dentro para que escribir no re-renderice HomeScreen
+// TextInput no-controlado: no hay re-render por cada tecla.
+// El valor se lee del ref solo en el momento de confirmar.
 export function QuickActionModal({ visible, type, cat, accounts, defaultAccountId, onClose, onConfirm }) {
-  const [amount, setAmount] = useState('');
+  const inputRef  = useRef(null);
+  const amountRef = useRef('');
   const [accountId, setAccountId] = useState('');
 
-  // Resetear al abrirse
   useEffect(() => {
     if (visible) {
-      setAmount('');
+      amountRef.current = '';
+      // Limpia el input nativo sin disparar re-render
+      inputRef.current?.clear();
       setAccountId(defaultAccountId || '');
     }
   }, [visible, defaultAccountId]);
@@ -44,12 +47,12 @@ export function QuickActionModal({ visible, type, cat, accounts, defaultAccountI
 
           <Text style={styles.fieldLabel}>IMPORTE</Text>
           <TextInput
+            ref={inputRef}
             style={styles.input}
             placeholder="0,00"
             placeholderTextColor={COLORS.textDim}
             keyboardType="decimal-pad"
-            value={amount}
-            onChangeText={setAmount}
+            onChangeText={v => { amountRef.current = v; }}
             autoFocus
           />
 
@@ -72,7 +75,7 @@ export function QuickActionModal({ visible, type, cat, accounts, defaultAccountI
             <TouchableOpacity style={[styles.btn, styles.cancelBtn]} onPress={onClose}>
               <Text style={styles.cancelText}>CANCELAR</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.btn, styles.confirmBtn]} onPress={() => onConfirm(amount, accountId)}>
+            <TouchableOpacity style={[styles.btn, styles.confirmBtn]} onPress={() => onConfirm(amountRef.current, accountId)}>
               <LinearGradient colors={gradient} style={StyleSheet.absoluteFill} />
               <Ionicons name="flash" size={15} color="#fff" />
               <Text style={styles.confirmText}>{btnText}</Text>

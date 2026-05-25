@@ -11,7 +11,7 @@ const FrequentCategoriesRow = memo(function FrequentCategoriesRow({ cats, type, 
   const emptyLabel = type === 'expense' ? 'Añadir gasto' : 'Añadir ingreso';
 
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickScroll}>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false} nestedScrollEnabled contentContainerStyle={styles.quickScroll}>
       {cats.length === 0 ? (
         <TouchableOpacity style={styles.quickChipAdd} onPress={onAddEmpty}>
           <Ionicons name="flash" size={16} color={color} />
