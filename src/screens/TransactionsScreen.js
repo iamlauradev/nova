@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, StyleSheet,
   TextInput, Alert, Modal, KeyboardAvoidingView, Platform, FlatList,
@@ -117,6 +117,7 @@ export default function TransactionsScreen() {
   const [accountFilter,  setAccountFilter]  = useState(null); // null = todas
   const [categoryFilter, setCategoryFilter] = useState(null); // null = todas
   const [activePanel,    setActivePanel]    = useState(null); // 'tiempo'|'tipo'|'categoria'|'cuenta'
+  const [searchInput,    setSearchInput]    = useState('');
   const [search,         setSearch]         = useState('');
   const [visibleCount,   setVisibleCount]   = useState(PAGE_SIZE);
   const [showSearch,     setShowSearch]     = useState(false);
@@ -162,11 +163,25 @@ export default function TransactionsScreen() {
       }
     }
     if (route.params?.search) {
+      setSearchInput(route.params.search);
       setSearch(route.params.search);
       setShowSearch(true);
       setPeriodFilter('all');
     }
   }, [route.params?.openAdd, route.params?.search]);
+
+  // ── Debounce search: UI stays snappy, filter runs 250ms after typing stops ─
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(searchInput), 250);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  // ── Category Map — O(1) lookup instead of O(n) find per transaction ───────
+  const categoryMap = useMemo(() => {
+    const m = new Map();
+    [...(categories.income || []), ...(categories.expense || [])].forEach(c => m.set(c.id, c));
+    return m;
+  }, [categories]);
 
   // ── Filtered transactions ────────────────────────────────────────────────
   const filtered = useMemo(() => {
@@ -180,12 +195,11 @@ export default function TransactionsScreen() {
     if (accountFilter) list = list.filter(t => t.accountId === accountFilter);
     // Category
     if (categoryFilter) list = list.filter(t => t.category === categoryFilter);
-    // Search
+    // Search (uses debounced value)
     if (search.trim()) {
       const q = search.toLowerCase();
-      const allCats = [...(categories.income || []), ...(categories.expense || [])];
       list = list.filter(t => {
-        const cat = allCats.find(c => c.id === t.category);
+        const cat = categoryMap.get(t.category);
         return (
           (t.description || '').toLowerCase().includes(q) ||
           (cat?.name || '').toLowerCase().includes(q) ||
@@ -195,10 +209,10 @@ export default function TransactionsScreen() {
       });
     }
     return list.slice().sort((a, b) => new Date(b.date) - new Date(a.date));
-  }, [transactions, typeFilter, periodFilter, accountFilter, categoryFilter, search, categories]);
+  }, [transactions, typeFilter, periodFilter, accountFilter, categoryFilter, search, categoryMap]);
 
   // Reset pagination when filters/search change
-  React.useEffect(() => { setVisibleCount(PAGE_SIZE); }, [typeFilter, periodFilter, accountFilter, categoryFilter, search]);
+  React.useEffect(() => { setVisibleCount(PAGE_SIZE); }, [typeFilter, periodFilter, accountFilter, categoryFilter, searchInput]);
 
   // Reset category filter when type changes (categories are type-specific)
   React.useEffect(() => { setCategoryFilter(null); }, [typeFilter]);
@@ -447,12 +461,12 @@ export default function TransactionsScreen() {
             style={styles.searchInput}
             placeholder="Buscar movimientos..."
             placeholderTextColor={COLORS.textDim}
-            value={search}
-            onChangeText={setSearch}
+            value={searchInput}
+            onChangeText={setSearchInput}
             autoFocus
           />
-          {search.length > 0 && (
-            <TouchableOpacity onPress={() => setSearch('')} style={{ paddingRight: 12 }}>
+          {searchInput.length > 0 && (
+            <TouchableOpacity onPress={() => { setSearchInput(''); setSearch(''); }} style={{ paddingRight: 12 }}>
               <Ionicons name="close-circle" size={16} color={COLORS.textDim} />
             </TouchableOpacity>
           )}
@@ -656,6 +670,10 @@ export default function TransactionsScreen() {
           keyExtractor={i => i.id}
           contentContainerStyle={styles.list}
           showsVerticalScrollIndicator={false}
+          removeClippedSubviews={true}
+          windowSize={5}
+          maxToRenderPerBatch={10}
+          initialNumToRender={PAGE_SIZE}
           onEndReached={() => { if (hasMore) setVisibleCount(c => c + PAGE_SIZE); }}
           onEndReachedThreshold={0.3}
           ListFooterComponent={hasMore

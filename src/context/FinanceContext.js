@@ -22,7 +22,6 @@ export function FinanceProvider({ children, isAuthenticated }) {
   const [debts, setDebts] = useState([]);
   const [loans, setLoans] = useState([]);
   const [customCategories, setCustomCategories] = useState({ income: [], expense: [] });
-  // hiddenDefaultCats: { income: Set<id>, expense: Set<id> } — default cats hidden by user
   const [hiddenDefaultCats, setHiddenDefaultCats] = useState({ income: new Set(), expense: new Set() });
   const [isLoaded, setIsLoaded] = useState(false);
   const [syncError, setSyncError] = useState(null);
@@ -51,7 +50,6 @@ export function FinanceProvider({ children, isAuthenticated }) {
       setSyncError(null);
       setIsLoaded(false);
 
-      // Carga principal
       const [accs, txs, recs] = await Promise.all([
         api.getAccounts(),
         api.getTransactions(),
@@ -61,7 +59,6 @@ export function FinanceProvider({ children, isAuthenticated }) {
       setTransactions(txs);
       setRecurringItems(recs);
 
-      // Cargas opcionales (no rompen si el backend no está actualizado)
       const [transfers, financed, buds, gls, archived, dbs, lns] = await Promise.allSettled([
         api.getSavingsTransfers(),
         api.getFinancedItems(),
@@ -87,7 +84,6 @@ export function FinanceProvider({ children, isAuthenticated }) {
       setDebts(debtsVal);
       setLoans(loansVal);
 
-      // Auto-aplicar transferencias de ahorro pendientes
       const now = new Date();
       const today = now.getDate();
       const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -104,7 +100,6 @@ export function FinanceProvider({ children, isAuthenticated }) {
           ...pendingTransfers.map(t => api.applySavingsTransfer(t.id)),
           ...pendingFinanced.map(f => api.applyFinancedItem(f.id)),
         ]);
-        // Recargar datos frescos tras aplicar
         const [freshAccs, freshTxs, freshTransfers, freshFinanced] = await Promise.allSettled([
           api.getAccounts(),
           api.getTransactions(),
@@ -133,7 +128,6 @@ export function FinanceProvider({ children, isAuthenticated }) {
     }
   }, [isAuthenticated, loadAll]);
 
-  // ── Silent refresh (no spinner, para sync en tiempo real) ──────────────────
   const silentRefresh = useCallback(async () => {
     if (!isAuthenticated) return;
     try {
@@ -161,12 +155,10 @@ export function FinanceProvider({ children, isAuthenticated }) {
       if (dbs.status       === 'fulfilled') setDebts(dbs.value);
       if (lns.status       === 'fulfilled') setLoans(lns.value);
       setSyncError(null);
-    } catch (_) {
-      // Fallo silencioso — no interrumpir UI
-    }
+    } catch (_) {}
   }, [isAuthenticated]);
 
-  // ── B3: SSE — refresco en tiempo real sin polling ──────────────────────────
+  // ── SSE ───────────────────────────────────────────────────────────────────
   const sseRef = useRef(null);
   useEffect(() => {
     if (!isAuthenticated) { sseRef.current = null; return; }
@@ -180,9 +172,7 @@ export function FinanceProvider({ children, isAuthenticated }) {
         const token = await getToken();
         if (!token || !active) return;
 
-        const url = `${API_BASE_URL}/api/events`;
-
-        const res = await fetch(url, {
+        const res = await fetch(`${API_BASE_URL}/api/events`, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
@@ -190,7 +180,6 @@ export function FinanceProvider({ children, isAuthenticated }) {
 
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
-
         sseRef.current = reader;
 
         while (active) {
@@ -200,7 +189,6 @@ export function FinanceProvider({ children, isAuthenticated }) {
           if (text.includes('"type":"refresh"')) silentRefresh();
         }
       } catch (_) {
-        // Reconnect after 5s on failure
         if (active) retryTimeout = setTimeout(connect, 5_000);
       }
     }
@@ -214,7 +202,7 @@ export function FinanceProvider({ children, isAuthenticated }) {
     };
   }, [isAuthenticated, silentRefresh]);
 
-  // ── AppState: refresco al volver a primer plano (SSE puede haberse caído) ──
+  // ── AppState ──────────────────────────────────────────────────────────────
   const appStateRef = useRef(AppState.currentState);
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -231,31 +219,36 @@ export function FinanceProvider({ children, isAuthenticated }) {
   }, [isAuthenticated, silentRefresh]);
 
   // --- Cuentas ---
-  const addAccount = async (data) => {
+  const addAccount = useCallback(async (data) => {
     const account = { id: `acc_${Date.now()}`, balance: parseFloat(data.balance) || 0, ...data };
     await api.addAccount(account);
     setAccounts(prev => [...prev, account]);
-  };
+  }, []);
 
-  // FIX: accepts (id, data) to match call sites in AccountsScreen
-  const updateAccount = async (id, data) => {
-    const current = accounts.find(a => a.id === id);
-    const updated = { ...current, ...data };
+  const updateAccount = useCallback(async (id, data) => {
+    let updated;
+    setAccounts(prev => {
+      const current = prev.find(a => a.id === id);
+      updated = { ...current, ...data };
+      return prev.map(a => a.id === id ? updated : a);
+    });
     await api.updateAccount(id, updated);
-    setAccounts(prev => prev.map(a => a.id === id ? updated : a));
-  };
+  }, []);
 
-  const archiveAccount = async (id) => {
-    const acc = accounts.find(a => a.id === id);
+  const archiveAccount = useCallback(async (id) => {
+    let acc;
+    setAccounts(prev => {
+      acc = prev.find(a => a.id === id);
+      return prev.filter(a => a.id !== id);
+    });
     await api.archiveAccount(id);
-    setAccounts(prev => prev.filter(a => a.id !== id));
     if (acc) setArchivedAccounts(prev => [...prev, { ...acc, archived: 1 }]);
     setRecurringItems(prev => prev.map(r => r.accountId === id ? { ...r, active: false } : r));
     setSavingsTransfers(prev => prev.map(t =>
       (t.fromAccountId === id || t.toAccountId === id) ? { ...t, active: false } : t
     ));
     setFinancedItems(prev => prev.map(f => f.accountId === id ? { ...f, active: false } : f));
-  };
+  }, []);
 
   // --- Transacciones ---
   const addTransaction = useCallback(async (data) => {
@@ -277,8 +270,12 @@ export function FinanceProvider({ children, isAuthenticated }) {
     setTransactions(prev => [tx, ...prev]);
   }, []);
 
-  const editTransaction = async (id, data) => {
-    const old = transactions.find(t => t.id === id);
+  const editTransaction = useCallback(async (id, data) => {
+    let old;
+    setTransactions(prev => {
+      old = prev.find(t => t.id === id);
+      return prev.map(t => t.id === id ? { ...t, ...data } : t);
+    });
     await api.editTransaction(id, data);
     if (old) {
       const revert = old.type === 'income' ? -old.amount : old.type === 'expense' ? old.amount : 0;
@@ -294,11 +291,18 @@ export function FinanceProvider({ children, isAuthenticated }) {
         prev.map(a => a.id === data.accountId ? { ...a, balance: +(a.balance + delta).toFixed(2) } : a)
       );
     }
-    setTransactions(prev => prev.map(t => t.id === id ? { ...t, ...data } : t));
-  };
+  }, []);
 
-  const deleteTransaction = async (id) => {
-    const tx = transactions.find(t => t.id === id);
+  const deleteTransaction = useCallback(async (id) => {
+    let tx, paired;
+    setTransactions(prev => {
+      tx = prev.find(t => t.id === id);
+      if (tx?.transferGroup) {
+        paired = prev.find(t => t.transferGroup === tx.transferGroup && t.id !== id);
+      }
+      const toRemove = new Set([id, paired?.id].filter(Boolean));
+      return prev.filter(t => !toRemove.has(t.id));
+    });
     await api.deleteTransaction(id);
     if (tx) {
       const revert = tx.type === 'income' ? -tx.amount : tx.type === 'expense' ? tx.amount : 0;
@@ -307,23 +311,18 @@ export function FinanceProvider({ children, isAuthenticated }) {
           prev.map(a => a.id === tx.accountId ? { ...a, balance: +(a.balance + revert).toFixed(2) } : a)
         );
       }
-      if (tx.transferGroup) {
-        const paired = transactions.find(t => t.transferGroup === tx.transferGroup && t.id !== id);
-        if (paired) {
-          const pRevert = paired.type === 'income' ? -paired.amount : paired.type === 'expense' ? paired.amount : 0;
-          if (pRevert !== 0) {
-            setAccounts(prev =>
-              prev.map(a => a.id === paired.accountId ? { ...a, balance: +(a.balance + pRevert).toFixed(2) } : a)
-            );
-          }
-          setTransactions(prev => prev.filter(t => t.id !== paired.id));
-        }
+    }
+    if (paired) {
+      const pRevert = paired.type === 'income' ? -paired.amount : paired.type === 'expense' ? paired.amount : 0;
+      if (pRevert !== 0) {
+        setAccounts(prev =>
+          prev.map(a => a.id === paired.accountId ? { ...a, balance: +(a.balance + pRevert).toFixed(2) } : a)
+        );
       }
     }
-    setTransactions(prev => prev.filter(t => t.id !== id));
-  };
+  }, []);
 
-  const addTransfer = async (data) => {
+  const addTransfer = useCallback(async (data) => {
     const result = await api.addTransfer(data);
     const group = result.group || `trf_${Date.now()}`;
     const amount = parseFloat(data.amount);
@@ -340,47 +339,51 @@ export function FinanceProvider({ children, isAuthenticated }) {
       return a;
     }));
     setTransactions(prev => [txOut, txIn, ...prev]);
-  };
+  }, []);
 
   // --- Fijos ---
-  const addRecurring = async (data) => {
+  const addRecurring = useCallback(async (data) => {
     const item = { id: `rec_${Date.now()}`, active: true, customMonths: 0, ...data, amount: parseFloat(data.amount) };
     await api.addRecurring(item);
     setRecurringItems(prev => [...prev, item]);
     schedulePaymentReminder(item).catch(() => {});
-  };
-  const updateRecurring = async (item) => {
+  }, []);
+
+  const updateRecurring = useCallback(async (item) => {
     await api.updateRecurring(item.id, item);
     setRecurringItems(prev => prev.map(r => r.id === item.id ? item : r));
     if (item.active !== false) schedulePaymentReminder(item).catch(() => {});
     else cancelPaymentReminder(item.id).catch(() => {});
-  };
-  const deleteRecurring = async (id) => {
+  }, []);
+
+  const deleteRecurring = useCallback(async (id) => {
     await api.deleteRecurring(id);
     setRecurringItems(prev => prev.filter(r => r.id !== id));
     cancelPaymentReminder(id).catch(() => {});
-  };
+  }, []);
 
   // --- Transferencias de ahorro ---
-  const addSavingsTransfer = async (data) => {
+  const addSavingsTransfer = useCallback(async (data) => {
     const item = { id: `st_${Date.now()}`, active: true, lastApplied: '', ...data, amount: parseFloat(data.amount) };
     setSavingsTransfers(prev => [...prev, item]);
     try { await api.addSavingsTransfer(item); }
     catch (e) { setSavingsTransfers(prev => prev.filter(t => t.id !== item.id)); throw e; }
-  };
-  const updateSavingsTransfer = async (item) => {
+  }, []);
+
+  const updateSavingsTransfer = useCallback(async (item) => {
     setSavingsTransfers(prev => prev.map(t => t.id === item.id ? item : t));
     try { await api.updateSavingsTransfer(item.id, item); }
     catch (e) { api.getSavingsTransfers().then(setSavingsTransfers).catch(() => {}); throw e; }
-  };
-  const deleteSavingsTransfer = async (id) => {
+  }, []);
+
+  const deleteSavingsTransfer = useCallback(async (id) => {
     setSavingsTransfers(prev => prev.filter(t => t.id !== id));
     try { await api.deleteSavingsTransfer(id); }
     catch (e) { api.getSavingsTransfers().then(setSavingsTransfers).catch(() => {}); throw e; }
-  };
+  }, []);
 
   // --- Pagos aplazados ---
-  const addFinancedItem = async (data) => {
+  const addFinancedItem = useCallback(async (data) => {
     const monthly = data.monthlyAmount || +(data.totalAmount / data.months).toFixed(2);
     const item = { id: `fi_${Date.now()}`, active: true, appliedCount: 0, lastApplied: '',
       startDate: new Date().toISOString(), ...data, monthlyAmount: monthly,
@@ -388,22 +391,22 @@ export function FinanceProvider({ children, isAuthenticated }) {
     setFinancedItems(prev => [...prev, item]);
     try { await api.addFinancedItem(item); }
     catch (e) { setFinancedItems(prev => prev.filter(f => f.id !== item.id)); throw e; }
-  };
-  const updateFinancedItem = async (item) => {
+  }, []);
+
+  const updateFinancedItem = useCallback(async (item) => {
     setFinancedItems(prev => prev.map(f => f.id === item.id ? item : f));
     try { await api.updateFinancedItem(item.id, item); }
     catch (e) { api.getFinancedItems().then(setFinancedItems).catch(() => {}); throw e; }
-  };
-  const deleteFinancedItem = async (id) => {
+  }, []);
+
+  const deleteFinancedItem = useCallback(async (id) => {
     setFinancedItems(prev => prev.filter(f => f.id !== id));
     try { await api.deleteFinancedItem(id); }
     catch (e) { api.getFinancedItems().then(setFinancedItems).catch(() => {}); throw e; }
-  };
+  }, []);
 
-  // FIX: applyFinancedItem now exists in context (was missing — caused crash)
-  const applyFinancedItem = async (id) => {
+  const applyFinancedItem = useCallback(async (id) => {
     await api.applyFinancedItem(id);
-    // Reload from server for authoritative state (backend auto-deactivates when complete)
     const [freshAccs, freshTxs, freshFinanced] = await Promise.allSettled([
       api.getAccounts(),
       api.getTransactions(),
@@ -412,10 +415,10 @@ export function FinanceProvider({ children, isAuthenticated }) {
     if (freshAccs.status     === 'fulfilled') setAccounts(freshAccs.value);
     if (freshTxs.status      === 'fulfilled') setTransactions(freshTxs.value);
     if (freshFinanced.status === 'fulfilled') setFinancedItems(freshFinanced.value);
-  };
+  }, []);
 
   // --- Presupuestos ---
-  const addBudget = async (data) => {
+  const addBudget = useCallback(async (data) => {
     const item = { id: `bud_${Date.now()}`, period: 'monthly', ...data, amount: parseFloat(data.amount) };
     setBudgets(prev => {
       const filtered = prev.filter(b => b.categoryId !== item.categoryId);
@@ -423,166 +426,166 @@ export function FinanceProvider({ children, isAuthenticated }) {
     });
     try { await api.addBudget(item); }
     catch (e) { api.getBudgets().then(setBudgets).catch(() => {}); throw e; }
-  };
-  const deleteBudget = async (id) => {
+  }, []);
+
+  const deleteBudget = useCallback(async (id) => {
     setBudgets(prev => prev.filter(b => b.id !== id));
     try { await api.deleteBudget(id); }
     catch (e) { api.getBudgets().then(setBudgets).catch(() => {}); throw e; }
-  };
+  }, []);
 
   // --- Objetivos ---
-  const addGoal = async (data) => {
+  const addGoal = useCallback(async (data) => {
     const item = { id: `goal_${Date.now()}`, currentAmount: 0, targetDate: '', accountId: '', icon: '🎯', ...data,
       targetAmount: parseFloat(data.targetAmount) };
     setGoals(prev => [...prev, item]);
     try { await api.addGoal(item); }
     catch (e) { setGoals(prev => prev.filter(g => g.id !== item.id)); throw e; }
-  };
+  }, []);
 
-  // FIX: accepts (id, data) to match call sites in StatsScreen
-  const updateGoal = async (id, data) => {
-    const current = goals.find(g => g.id === id);
-    const updated = { ...current, ...data };
-    setGoals(prev => prev.map(g => g.id === id ? updated : g));
+  const updateGoal = useCallback(async (id, data) => {
+    let updated;
+    setGoals(prev => {
+      const current = prev.find(g => g.id === id);
+      updated = { ...current, ...data };
+      return prev.map(g => g.id === id ? updated : g);
+    });
     try { await api.updateGoal(id, updated); }
     catch (e) { api.getGoals().then(setGoals).catch(() => {}); throw e; }
-  };
+  }, []);
 
-  const deleteGoal = async (id) => {
+  const deleteGoal = useCallback(async (id) => {
     setGoals(prev => prev.filter(g => g.id !== id));
     try { await api.deleteGoal(id); }
     catch (e) { api.getGoals().then(setGoals).catch(() => {}); throw e; }
-  };
+  }, []);
 
   // --- Deudas ---
-  const addDebt = async (data) => {
+  const addDebt = useCallback(async (data) => {
     const item = {
       id: `debt_${Date.now()}`,
-      paidAmount: 0,
-      icon: '🏚️',
-      color: '#7c3aed',
-      notes: '',
-      startDate: new Date().toISOString().split('T')[0],
-      targetDate: '',
-      active: 1,
-      ...data,
-      totalAmount: parseFloat(data.totalAmount),
+      paidAmount: 0, icon: '🏚️', color: '#7c3aed', notes: '',
+      startDate: new Date().toISOString().split('T')[0], targetDate: '', active: 1,
+      ...data, totalAmount: parseFloat(data.totalAmount),
     };
     setDebts(prev => [...prev, item]);
     try { await api.addDebt(item); }
     catch (e) { setDebts(prev => prev.filter(d => d.id !== item.id)); throw e; }
-  };
+  }, []);
 
-  const updateDebt = async (id, data) => {
-    const current = debts.find(d => d.id === id);
-    const updated = { ...current, ...data };
-    setDebts(prev => prev.map(d => d.id === id ? updated : d));
+  const updateDebt = useCallback(async (id, data) => {
+    let updated;
+    setDebts(prev => {
+      const current = prev.find(d => d.id === id);
+      updated = { ...current, ...data };
+      return prev.map(d => d.id === id ? updated : d);
+    });
     try { await api.updateDebt(id, updated); }
     catch (e) { api.getDebts().then(setDebts).catch(() => {}); throw e; }
-  };
+  }, []);
 
-  const deleteDebt = async (id) => {
+  const deleteDebt = useCallback(async (id) => {
     setDebts(prev => prev.filter(d => d.id !== id));
     try { await api.deleteDebt(id); }
     catch (e) { api.getDebts().then(setDebts).catch(() => {}); throw e; }
-  };
+  }, []);
 
-  const payDebt = async (id, { amount, accountId, date, description }) => {
+  const payDebt = useCallback(async (id, { amount, accountId, date, description }) => {
     await api.payDebt(id, { amount, accountId, date, description });
     const [freshAccs, freshTxs, freshDebts] = await Promise.allSettled([
-      api.getAccounts(),
-      api.getTransactions(),
-      api.getDebts(),
+      api.getAccounts(), api.getTransactions(), api.getDebts(),
     ]);
     if (freshAccs.status  === 'fulfilled') setAccounts(freshAccs.value);
     if (freshTxs.status   === 'fulfilled') setTransactions(freshTxs.value);
     if (freshDebts.status === 'fulfilled') setDebts(freshDebts.value);
-  };
+  }, []);
 
   // --- Préstamos ---
-  const addLoan = async (data) => {
+  const addLoan = useCallback(async (data) => {
     const item = {
       id: `loan_${Date.now()}`,
-      collectedAmount: 0,
-      icon: '🤝',
-      color: '#10b981',
-      notes: '',
-      startDate: new Date().toISOString().split('T')[0],
-      targetDate: '',
-      active: 1,
-      ...data,
-      totalAmount: parseFloat(data.totalAmount),
+      collectedAmount: 0, icon: '🤝', color: '#10b981', notes: '',
+      startDate: new Date().toISOString().split('T')[0], targetDate: '', active: 1,
+      ...data, totalAmount: parseFloat(data.totalAmount),
     };
     setLoans(prev => [...prev, item]);
     try { await api.addLoan(item); }
     catch (e) { setLoans(prev => prev.filter(l => l.id !== item.id)); throw e; }
-  };
+  }, []);
 
-  const updateLoan = async (id, data) => {
-    const current = loans.find(l => l.id === id);
-    const updated = { ...current, ...data };
-    setLoans(prev => prev.map(l => l.id === id ? updated : l));
+  const updateLoan = useCallback(async (id, data) => {
+    let updated;
+    setLoans(prev => {
+      const current = prev.find(l => l.id === id);
+      updated = { ...current, ...data };
+      return prev.map(l => l.id === id ? updated : l);
+    });
     try { await api.updateLoan(id, updated); }
     catch (e) { api.getLoans().then(setLoans).catch(() => {}); throw e; }
-  };
+  }, []);
 
-  const deleteLoan = async (id) => {
+  const deleteLoan = useCallback(async (id) => {
     setLoans(prev => prev.filter(l => l.id !== id));
     try { await api.deleteLoan(id); }
     catch (e) { api.getLoans().then(setLoans).catch(() => {}); throw e; }
-  };
+  }, []);
 
-  const collectLoan = async (id, { amount, accountId, date, description }) => {
+  const collectLoan = useCallback(async (id, { amount, accountId, date, description }) => {
     await api.collectLoan(id, { amount, accountId, date, description });
     const [freshAccs, freshTxs, freshLoans] = await Promise.allSettled([
-      api.getAccounts(),
-      api.getTransactions(),
-      api.getLoans(),
+      api.getAccounts(), api.getTransactions(), api.getLoans(),
     ]);
     if (freshAccs.status  === 'fulfilled') setAccounts(freshAccs.value);
     if (freshTxs.status   === 'fulfilled') setTransactions(freshTxs.value);
     if (freshLoans.status === 'fulfilled') setLoans(freshLoans.value);
-  };
+  }, []);
 
   // --- Categorías personalizadas ---
-  const addCategory = async (catType, category) => {
-    const updated = {
-      ...customCategories,
-      [catType]: [...customCategories[catType], { ...category, id: `cat_${Date.now()}` }],
-    };
-    setCustomCategories(updated);
-    await AsyncStorage.setItem(CUSTOM_CATS_KEY, JSON.stringify(updated)).catch(() => {});
-  };
+  const addCategory = useCallback(async (catType, category) => {
+    setCustomCategories(prev => {
+      const updated = {
+        ...prev,
+        [catType]: [...prev[catType], { ...category, id: `cat_${Date.now()}` }],
+      };
+      AsyncStorage.setItem(CUSTOM_CATS_KEY, JSON.stringify(updated)).catch(() => {});
+      return updated;
+    });
+  }, []);
 
-  const editCategory = async (catType, id, updates) => {
-    const updated = {
-      ...customCategories,
-      [catType]: customCategories[catType].map(c => c.id === id ? { ...c, ...updates } : c),
-    };
-    setCustomCategories(updated);
-    await AsyncStorage.setItem(CUSTOM_CATS_KEY, JSON.stringify(updated)).catch(() => {});
-  };
+  const editCategory = useCallback(async (catType, id, updates) => {
+    setCustomCategories(prev => {
+      const updated = {
+        ...prev,
+        [catType]: prev[catType].map(c => c.id === id ? { ...c, ...updates } : c),
+      };
+      AsyncStorage.setItem(CUSTOM_CATS_KEY, JSON.stringify(updated)).catch(() => {});
+      return updated;
+    });
+  }, []);
 
-  const deleteCategory = async (catType, id) => {
-    const updated = {
-      ...customCategories,
-      [catType]: customCategories[catType].filter(c => c.id !== id),
-    };
-    setCustomCategories(updated);
-    await AsyncStorage.setItem(CUSTOM_CATS_KEY, JSON.stringify(updated)).catch(() => {});
-  };
+  const deleteCategory = useCallback(async (catType, id) => {
+    setCustomCategories(prev => {
+      const updated = {
+        ...prev,
+        [catType]: prev[catType].filter(c => c.id !== id),
+      };
+      AsyncStorage.setItem(CUSTOM_CATS_KEY, JSON.stringify(updated)).catch(() => {});
+      return updated;
+    });
+  }, []);
 
-  // Toggle visibility of a DEFAULT category (hide/show)
-  const toggleHideDefaultCat = async (catType, id) => {
-    const currentSet = hiddenDefaultCats[catType];
-    const nextSet = new Set(currentSet);
-    if (nextSet.has(id)) nextSet.delete(id); else nextSet.add(id);
-    const next = { ...hiddenDefaultCats, [catType]: nextSet };
-    setHiddenDefaultCats(next);
-    const serializable = { income: [...next.income], expense: [...next.expense] };
-    await AsyncStorage.setItem(HIDDEN_CATS_KEY, JSON.stringify(serializable)).catch(() => {});
-  };
+  const toggleHideDefaultCat = useCallback(async (catType, id) => {
+    setHiddenDefaultCats(prev => {
+      const nextSet = new Set(prev[catType]);
+      if (nextSet.has(id)) nextSet.delete(id); else nextSet.add(id);
+      const next = { ...prev, [catType]: nextSet };
+      const serializable = { income: [...next.income], expense: [...next.expense] };
+      AsyncStorage.setItem(HIDDEN_CATS_KEY, JSON.stringify(serializable)).catch(() => {});
+      return next;
+    });
+  }, []);
 
+  // --- Computed ---
   const categories = useMemo(() => ({
     income:  [
       ...DEFAULT_CATEGORIES.income.filter(c => !hiddenDefaultCats.income.has(c.id)),
@@ -594,7 +597,6 @@ export function FinanceProvider({ children, isAuthenticated }) {
     ],
   }), [hiddenDefaultCats, customCategories]);
 
-  // --- Computed ---
   const totalBalance = useMemo(
     () => accounts.filter(a => a.type !== 'savings').reduce((s, a) => s + a.balance, 0),
     [accounts],
@@ -611,12 +613,12 @@ export function FinanceProvider({ children, isAuthenticated }) {
       .reduce((s, r) => s + r.amount, 0),
     [recurringItems],
   );
-  const freeMoney = totalBalance - monthlyFixed;
+  const freeMoney = useMemo(() => totalBalance - monthlyFixed, [totalBalance, monthlyFixed]);
 
   const activeDebts = useMemo(() => debts.filter(d => d.active === 1 || d.active === true), [debts]);
   const activeLoans = useMemo(() => loans.filter(l => l.active === 1 || l.active === true), [loans]);
 
-  const getTransactionsByPeriod = (period) => {
+  const getTransactionsByPeriod = useCallback((period) => {
     const now = new Date();
     return transactions.filter(t => {
       const d = new Date(t.date);
@@ -625,37 +627,60 @@ export function FinanceProvider({ children, isAuthenticated }) {
       if (period === 'quarter') { const q = new Date(now); q.setMonth(now.getMonth()-3); return d >= q; }
       return true;
     });
-  };
+  }, [transactions]);
 
-  const getIncomeExpenseSummary = (txs) => {
+  const getIncomeExpenseSummary = useCallback((txs) => {
     const realTxs = txs.filter(t => t.type === 'income' || t.type === 'expense');
     const income  = realTxs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
     const expense = realTxs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
     return { income, expense, net: income - expense };
-  };
+  }, []);
+
+  // ── Memoized context value — prevents cascade re-renders ──────────────────
+  const value = useMemo(() => ({
+    accounts, archivedAccounts, transactions, recurringItems,
+    savingsTransfers, financedItems, budgets, goals, debts, activeDebts,
+    loans, activeLoans, categories,
+    isLoaded, syncError,
+    totalBalance, totalSavings, savingsAccounts, freeMoney, monthlyFixed,
+    addAccount, updateAccount, archiveAccount,
+    addTransaction, editTransaction, deleteTransaction, addTransfer,
+    addRecurring, updateRecurring, deleteRecurring,
+    addSavingsTransfer, updateSavingsTransfer, deleteSavingsTransfer,
+    addFinancedItem, updateFinancedItem, deleteFinancedItem, applyFinancedItem,
+    addBudget, deleteBudget,
+    addGoal, updateGoal, deleteGoal,
+    addDebt, updateDebt, deleteDebt, payDebt,
+    addLoan, updateLoan, deleteLoan, collectLoan,
+    addCategory, editCategory, deleteCategory,
+    hiddenDefaultCats, toggleHideDefaultCat,
+    customCategories,
+    getTransactionsByPeriod, getIncomeExpenseSummary,
+    reload: loadAll,
+  }), [
+    accounts, archivedAccounts, transactions, recurringItems,
+    savingsTransfers, financedItems, budgets, goals, debts, activeDebts,
+    loans, activeLoans, categories,
+    isLoaded, syncError,
+    totalBalance, totalSavings, savingsAccounts, freeMoney, monthlyFixed,
+    addAccount, updateAccount, archiveAccount,
+    addTransaction, editTransaction, deleteTransaction, addTransfer,
+    addRecurring, updateRecurring, deleteRecurring,
+    addSavingsTransfer, updateSavingsTransfer, deleteSavingsTransfer,
+    addFinancedItem, updateFinancedItem, deleteFinancedItem, applyFinancedItem,
+    addBudget, deleteBudget,
+    addGoal, updateGoal, deleteGoal,
+    addDebt, updateDebt, deleteDebt, payDebt,
+    addLoan, updateLoan, deleteLoan, collectLoan,
+    addCategory, editCategory, deleteCategory,
+    hiddenDefaultCats, toggleHideDefaultCat,
+    customCategories,
+    getTransactionsByPeriod, getIncomeExpenseSummary,
+    loadAll,
+  ]);
 
   return (
-    <FinanceContext.Provider value={{
-      accounts, archivedAccounts, transactions, recurringItems,
-      savingsTransfers, financedItems, budgets, goals, debts, activeDebts,
-      loans, activeLoans, categories,
-      isLoaded, syncError,
-      totalBalance, totalSavings, savingsAccounts, freeMoney, monthlyFixed,
-      addAccount, updateAccount, archiveAccount,
-      addTransaction, editTransaction, deleteTransaction, addTransfer,
-      addRecurring, updateRecurring, deleteRecurring,
-      addSavingsTransfer, updateSavingsTransfer, deleteSavingsTransfer,
-      addFinancedItem, updateFinancedItem, deleteFinancedItem, applyFinancedItem,
-      addBudget, deleteBudget,
-      addGoal, updateGoal, deleteGoal,
-      addDebt, updateDebt, deleteDebt, payDebt,
-      addLoan, updateLoan, deleteLoan, collectLoan,
-      addCategory, editCategory, deleteCategory,
-      hiddenDefaultCats, toggleHideDefaultCat,
-      customCategories,
-      getTransactionsByPeriod, getIncomeExpenseSummary,
-      reload: loadAll,
-    }}>
+    <FinanceContext.Provider value={value}>
       {children}
     </FinanceContext.Provider>
   );

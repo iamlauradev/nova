@@ -96,9 +96,9 @@ export default function HomeScreen() {
   }, [prevMonthTxs, monthIncome, monthExpense]);
 
   // ── Net worth ─────────────────────────────────────────────────────────────
-  const totalAssets      = accounts.reduce((s, a) => s + a.balance, 0);
-  const totalLiabilities = (activeDebts  || []).reduce((s, d) => s + Math.max(0, d.totalAmount - d.paidAmount),     0);
-  const loansReceivable  = (activeLoans  || []).reduce((s, l) => s + Math.max(0, l.totalAmount - l.collectedAmount), 0);
+  const totalAssets      = useMemo(() => accounts.reduce((s, a) => s + a.balance, 0), [accounts]);
+  const totalLiabilities = useMemo(() => (activeDebts  || []).reduce((s, d) => s + Math.max(0, d.totalAmount - d.paidAmount),     0), [activeDebts]);
+  const loansReceivable  = useMemo(() => (activeLoans  || []).reduce((s, l) => s + Math.max(0, l.totalAmount - l.collectedAmount), 0), [activeLoans]);
   const netWorth         = totalAssets - totalLiabilities + loansReceivable;
 
   // ── End-of-month projection ───────────────────────────────────────────────

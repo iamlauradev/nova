@@ -33,6 +33,16 @@ export function useQuickActions({ transactions, categories, accounts, addTransac
   const [quickIncomeModal,    setQuickIncomeModal]    = useState(null);
   const [showIncomeCatPicker, setShowIncomeCatPicker] = useState(false);
 
+  // ── Category Maps — O(1) lookup ──────────────────────────────────────────
+  const expenseCatMap = useMemo(
+    () => new Map(categories.expense.map(c => [c.id, c])),
+    [categories.expense],
+  );
+  const incomeCatMap = useMemo(
+    () => new Map(categories.income.map(c => [c.id, c])),
+    [categories.income],
+  );
+
   // ── Frequent cats ────────────────────────────────────────────────────────
   const frequentCats = useMemo(() => {
     const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 60);
@@ -42,8 +52,8 @@ export function useQuickActions({ transactions, categories, accounts, addTransac
         counts[t.category] = (counts[t.category] || 0) + 1;
     });
     return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 8)
-      .map(([id]) => categories.expense.find(c => c.id === id)).filter(Boolean);
-  }, [transactions, categories.expense]);
+      .map(([id]) => expenseCatMap.get(id)).filter(Boolean);
+  }, [transactions, expenseCatMap]);
 
   const frequentIncomeCats = useMemo(() => {
     const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 60);
@@ -53,20 +63,20 @@ export function useQuickActions({ transactions, categories, accounts, addTransac
         counts[t.category] = (counts[t.category] || 0) + 1;
     });
     return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 8)
-      .map(([id]) => categories.income.find(c => c.id === id)).filter(Boolean);
-  }, [transactions, categories.income]);
+      .map(([id]) => incomeCatMap.get(id)).filter(Boolean);
+  }, [transactions, incomeCatMap]);
 
   const quickCats = useMemo(() => {
-    const pinned = pinnedCatIds.map(id => categories.expense.find(c => c.id === id)).filter(Boolean);
+    const pinned = pinnedCatIds.map(id => expenseCatMap.get(id)).filter(Boolean);
     const freqIds = new Set(pinnedCatIds);
     return [...pinned, ...frequentCats.filter(c => !freqIds.has(c.id))].slice(0, 10);
-  }, [pinnedCatIds, frequentCats, categories.expense]);
+  }, [pinnedCatIds, frequentCats, expenseCatMap]);
 
   const quickIncomeCats = useMemo(() => {
-    const pinned = pinnedIncomeIds.map(id => categories.income.find(c => c.id === id)).filter(Boolean);
+    const pinned = pinnedIncomeIds.map(id => incomeCatMap.get(id)).filter(Boolean);
     const pinnedSet = new Set(pinnedIncomeIds);
     return [...pinned, ...frequentIncomeCats.filter(c => !pinnedSet.has(c.id))].slice(0, 10);
-  }, [pinnedIncomeIds, frequentIncomeCats, categories.income]);
+  }, [pinnedIncomeIds, frequentIncomeCats, incomeCatMap]);
 
   // ── Pin / unpin ──────────────────────────────────────────────────────────
   const pinCategory = (catId) => {
