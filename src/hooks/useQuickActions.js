@@ -27,15 +27,11 @@ export function useQuickActions({ transactions, categories, accounts, addTransac
   }, []);
 
   // ── Modal state ──────────────────────────────────────────────────────────
-  const [quickModal,           setQuickModal]           = useState(null);
-  const [quickAmount,          setQuickAmount]          = useState('');
-  const [quickAccountId,       setQuickAccountId]       = useState('');
-  const [showCatPicker,        setShowCatPicker]        = useState(false);
+  const [quickModal,          setQuickModal]          = useState(null);
+  const [showCatPicker,       setShowCatPicker]       = useState(false);
 
-  const [quickIncomeModal,     setQuickIncomeModal]     = useState(null);
-  const [quickIncomeAmount,    setQuickIncomeAmount]    = useState('');
-  const [quickIncomeAccountId, setQuickIncomeAccountId] = useState('');
-  const [showIncomeCatPicker,  setShowIncomeCatPicker]  = useState(false);
+  const [quickIncomeModal,    setQuickIncomeModal]    = useState(null);
+  const [showIncomeCatPicker, setShowIncomeCatPicker] = useState(false);
 
   // ── Frequent cats ────────────────────────────────────────────────────────
   const frequentCats = useMemo(() => {
@@ -95,51 +91,53 @@ export function useQuickActions({ transactions, categories, accounts, addTransac
   };
 
   // ── Quick add handlers ───────────────────────────────────────────────────
-  const openQuickAdd = (cat) => {
-    setQuickAmount('');
-    setQuickAccountId(accounts.find(a => a.type !== 'savings')?.id || '');
+  // amount/accountId viven dentro de QuickActionModal; aquí solo recibimos los valores al confirmar
+  const openQuickAdd = useCallback((cat) => {
     setQuickModal({ cat });
-  };
-  const confirmQuickAdd = async () => {
-    const amt = parseFloat(quickAmount.replace(',', '.'));
+  }, []);
+
+  const confirmQuickAdd = useCallback(async (amountStr, accountId) => {
+    const amt = parseFloat(amountStr.replace(',', '.'));
     if (!amt || amt <= 0) return Alert.alert('Importe inválido', 'Introduce un importe mayor que 0');
-    if (!quickAccountId) return Alert.alert('Cuenta requerida', 'Selecciona una cuenta');
+    if (!accountId) return Alert.alert('Cuenta requerida', 'Selecciona una cuenta');
     try {
       await addTransaction({
         type: 'expense', amount: amt, category: quickModal.cat.id,
-        accountId: quickAccountId, description: quickModal.cat.name, date: new Date().toISOString(),
+        accountId, description: quickModal.cat.name, date: new Date().toISOString(),
       });
       setQuickModal(null);
     } catch (e) { Alert.alert('Error', e.message); }
-  };
+  }, [quickModal, addTransaction]);
 
-  const openQuickIncomeAdd = (cat) => {
-    setQuickIncomeAmount('');
-    setQuickIncomeAccountId(accounts.find(a => a.type !== 'savings')?.id || '');
+  const openQuickIncomeAdd = useCallback((cat) => {
     setQuickIncomeModal({ cat });
-  };
-  const confirmQuickIncomeAdd = async () => {
-    const amt = parseFloat(quickIncomeAmount.replace(',', '.'));
+  }, []);
+
+  const confirmQuickIncomeAdd = useCallback(async (amountStr, accountId) => {
+    const amt = parseFloat(amountStr.replace(',', '.'));
     if (!amt || amt <= 0) return Alert.alert('Importe inválido', 'Introduce un importe mayor que 0');
-    if (!quickIncomeAccountId) return Alert.alert('Cuenta requerida', 'Selecciona una cuenta');
+    if (!accountId) return Alert.alert('Cuenta requerida', 'Selecciona una cuenta');
     try {
       await addTransaction({
         type: 'income', amount: amt, category: quickIncomeModal.cat.id,
-        accountId: quickIncomeAccountId, description: quickIncomeModal.cat.name, date: new Date().toISOString(),
+        accountId, description: quickIncomeModal.cat.name, date: new Date().toISOString(),
       });
       setQuickIncomeModal(null);
     } catch (e) { Alert.alert('Error', e.message); }
-  };
+  }, [quickIncomeModal, addTransaction]);
+
+  const openExpenseCatPicker  = useCallback(() => setShowCatPicker(true),       []);
+  const closeExpenseCatPicker = useCallback(() => setShowCatPicker(false),      []);
+  const openIncomeCatPicker   = useCallback(() => setShowIncomeCatPicker(true),  []);
+  const closeIncomeCatPicker  = useCallback(() => setShowIncomeCatPicker(false), []);
 
   return {
     quickCats, pinnedCatIds, pinCategory, unpinCategory,
-    quickModal, setQuickModal, quickAmount, setQuickAmount,
-    quickAccountId, setQuickAccountId, openQuickAdd, confirmQuickAdd,
-    showCatPicker, setShowCatPicker,
+    quickModal, setQuickModal, openQuickAdd, confirmQuickAdd,
+    showCatPicker, setShowCatPicker, openExpenseCatPicker, closeExpenseCatPicker,
 
     quickIncomeCats, pinnedIncomeIds, pinIncomeCategory, unpinIncomeCategory,
-    quickIncomeModal, setQuickIncomeModal, quickIncomeAmount, setQuickIncomeAmount,
-    quickIncomeAccountId, setQuickIncomeAccountId, openQuickIncomeAdd, confirmQuickIncomeAdd,
-    showIncomeCatPicker, setShowIncomeCatPicker,
+    quickIncomeModal, setQuickIncomeModal, openQuickIncomeAdd, confirmQuickIncomeAdd,
+    showIncomeCatPicker, setShowIncomeCatPicker, openIncomeCatPicker, closeIncomeCatPicker,
   };
 }

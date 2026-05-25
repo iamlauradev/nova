@@ -166,6 +166,11 @@ export const api = {
   addBudget:    (data) => req('POST',   '/api/budgets', data),
   deleteBudget: (id)   => req('DELETE', `/api/budgets/${id}`),
 
+  // Envelopes
+  getEnvelopes:   (year, month)        => req('GET',    `/api/envelopes?year=${year}&month=${month}`),
+  setEnvelope:    (data)               => req('PUT',    '/api/envelopes', data),
+  deleteEnvelope: (catId, year, month) => req('DELETE', `/api/envelopes/${catId}?year=${year}&month=${month}`),
+
   // Goals
   getGoals:   ()         => req('GET',    '/api/goals'),
   addGoal:    (data)     => req('POST',   '/api/goals', data),

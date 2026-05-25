@@ -8,11 +8,13 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install --production
 
-COPY server.js .
+COPY --chown=node:node . .
 
 # Directorio para la base de datos SQLite
-RUN mkdir -p /app/data
+RUN mkdir -p /app/data && chown node:node /app/data
 
 EXPOSE 3000
+
+USER node
 
 CMD ["node", "server.js"]

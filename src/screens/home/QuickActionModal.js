@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, Modal, TextInput, ScrollView,
   TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform,
@@ -9,7 +9,19 @@ import { COLORS } from '../../theme';
 import CategoryImage from '../../components/CategoryImage';
 
 // ── Quick amount-entry modal (expense or income) ──────────────────────────────
-export function QuickActionModal({ visible, type, cat, accounts, amount, onChangeAmount, accountId, onChangeAccountId, onClose, onConfirm }) {
+// Estado de amount/accountId vive aquí dentro para que escribir no re-renderice HomeScreen
+export function QuickActionModal({ visible, type, cat, accounts, defaultAccountId, onClose, onConfirm }) {
+  const [amount, setAmount] = useState('');
+  const [accountId, setAccountId] = useState('');
+
+  // Resetear al abrirse
+  useEffect(() => {
+    if (visible) {
+      setAmount('');
+      setAccountId(defaultAccountId || '');
+    }
+  }, [visible, defaultAccountId]);
+
   if (!cat) return null;
   const isExpense = type === 'expense';
   const color     = isExpense ? COLORS.expense : COLORS.income;
@@ -37,7 +49,7 @@ export function QuickActionModal({ visible, type, cat, accounts, amount, onChang
             placeholderTextColor={COLORS.textDim}
             keyboardType="decimal-pad"
             value={amount}
-            onChangeText={onChangeAmount}
+            onChangeText={setAmount}
             autoFocus
           />
 
@@ -48,7 +60,7 @@ export function QuickActionModal({ visible, type, cat, accounts, amount, onChang
                 <TouchableOpacity
                   key={acc.id}
                   style={[styles.accChip, accountId === acc.id && { borderColor: acc.color || COLORS.primary, backgroundColor: `${acc.color || COLORS.primary}22` }]}
-                  onPress={() => onChangeAccountId(acc.id)}
+                  onPress={() => setAccountId(acc.id)}
                 >
                   <Text style={[styles.accChipText, accountId === acc.id && { color: acc.color || COLORS.primary }]}>{acc.name}</Text>
                 </TouchableOpacity>
@@ -60,7 +72,7 @@ export function QuickActionModal({ visible, type, cat, accounts, amount, onChang
             <TouchableOpacity style={[styles.btn, styles.cancelBtn]} onPress={onClose}>
               <Text style={styles.cancelText}>CANCELAR</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.btn, styles.confirmBtn]} onPress={onConfirm}>
+            <TouchableOpacity style={[styles.btn, styles.confirmBtn]} onPress={() => onConfirm(amount, accountId)}>
               <LinearGradient colors={gradient} style={StyleSheet.absoluteFill} />
               <Ionicons name="flash" size={15} color="#fff" />
               <Text style={styles.confirmText}>{btnText}</Text>

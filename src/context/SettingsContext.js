@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { configureCurrency } from '../utils';
 
 // ─── Defaults ─────────────────────────────────────────────────────────────────
 const SETTINGS_KEY = '@nova_settings';
@@ -37,6 +38,7 @@ export function SettingsProvider({ children }) {
   useEffect(() => {
     if (loaded) {
       AsyncStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+      configureCurrency(settings.currency || 'EUR', settings.currencyLocale || 'es-ES');
     }
   }, [settings, loaded]);
 

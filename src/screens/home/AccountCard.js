@@ -1,11 +1,11 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { COLORS, ACCOUNT_TYPES } from '../../theme';
 import { formatCurrency } from '../../utils';
 import CategoryImage from '../../components/CategoryImage';
 
-export default function AccountCard({ account, onPress }) {
+const AccountCard = memo(function AccountCard({ account, onPress }) {
   const accountType = ACCOUNT_TYPES.find(t => t.id === account.type);
   return (
     <TouchableOpacity onPress={onPress} activeOpacity={0.8}>
@@ -27,7 +27,9 @@ export default function AccountCard({ account, onPress }) {
       </View>
     </TouchableOpacity>
   );
-}
+});
+
+export default AccountCard;
 
 const styles = StyleSheet.create({
   card: {

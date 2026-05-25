@@ -182,6 +182,16 @@ const MIGRATIONS = [
   { name: '011_transactions_splits', sql: 'ALTER TABLE transactions ADD COLUMN splits TEXT DEFAULT NULL' },
   { name: '012_recurring_deletedAt',  sql: 'ALTER TABLE recurringItems ADD COLUMN deletedAt TEXT DEFAULT NULL' },
   { name: '013_budgets_deletedAt',    sql: 'ALTER TABLE budgets ADD COLUMN deletedAt TEXT DEFAULT NULL' },
+  { name: '014_envelopes', sql: `CREATE TABLE IF NOT EXISTS envelopes (
+    id         TEXT PRIMARY KEY,
+    userId     INTEGER NOT NULL,
+    year       INTEGER NOT NULL,
+    month      INTEGER NOT NULL,
+    categoryId TEXT NOT NULL,
+    assigned   REAL DEFAULT 0,
+    UNIQUE(userId, year, month, categoryId),
+    FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+  )` },
 ];
 
 const appliedMigrations = new Set(

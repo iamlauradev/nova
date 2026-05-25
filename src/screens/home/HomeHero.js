@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -6,7 +6,7 @@ import { COLORS } from '../../theme';
 import AnimatedNumber from '../../components/AnimatedNumber';
 import { formatCurrency } from '../../utils';
 
-export default function HomeHero({
+const HomeHero = memo(function HomeHero({
   mainAccounts, hiddenIds, onToggleAccount, isFiltered, displayBalance,
   totalSavings, monthIncome, monthExpense, monthNet, incomeDelta, expenseDelta,
 }) {
@@ -80,7 +80,9 @@ export default function HomeHero({
       </View>
     </LinearGradient>
   );
-}
+});
+
+export default HomeHero;
 
 const styles = StyleSheet.create({
   hero: { paddingTop: 60, paddingBottom: 20, paddingHorizontal: 20, alignItems: 'center' },

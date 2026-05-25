@@ -1,11 +1,11 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { COLORS } from '../../theme';
 import GlowCard from '../../components/GlowCard';
 import SectionHeader from '../../components/SectionHeader';
 import TransactionRow from './TransactionRow';
 
-export default function RecentTransactionsList({ recent, accounts, categories, onViewAll }) {
+const RecentTransactionsList = memo(function RecentTransactionsList({ recent, accounts, categories, onViewAll }) {
   return (
     <>
       <SectionHeader
@@ -34,7 +34,9 @@ export default function RecentTransactionsList({ recent, accounts, categories, o
       )}
     </>
   );
-}
+});
+
+export default RecentTransactionsList;
 
 const styles = StyleSheet.create({
   seeAll: { color: COLORS.primaryLight, fontSize: 11, fontWeight: '600' },

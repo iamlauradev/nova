@@ -3,21 +3,36 @@ services:
     build: ./backend
     container_name: nova-api
     restart: unless-stopped
+    environment:
+      TZ: Europe/Madrid
+      JWT_SECRET: ${JWT_SECRET}
+      PORT: 3000
+      NODE_ENV: production
     networks:
       - homelab_net
+    security_opt:
+      - no-new-privileges:true
     volumes:
       - ./nova-data:/app/data
-    environment:
-      # ⚠️  CAMBIA ESTO por una cadena random larga antes de arrancar
-      # Puedes generar una con: openssl rand -base64 32
-      - JWT_SECRET=LijhUI306RX59YjNOnSYkjtACj4wiao+iKIsPeRq1sE=
-      - PORT=3000
-      - NODE_ENV=production
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.3'
+        reservations:
+          memory: 32M
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.nova.rule=Host(`nova.iamlaura.dev`)"
       - "traefik.http.routers.nova.entrypoints=websecure"
       - "traefik.http.routers.nova.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.nova.middlewares=security-headers@file"
       - "traefik.http.services.nova.loadbalancer.server.port=3000"
 
 networks:

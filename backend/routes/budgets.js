@@ -10,7 +10,7 @@ router.get('/', auth, (req, res) => {
 
 router.post('/', auth, (req, res) => {
   const { id, categoryId, amount, period } = req.body;
-  const existing = db.prepare('SELECT id FROM budgets WHERE userId=? AND categoryId=?')
+  const existing = db.prepare('SELECT id FROM budgets WHERE userId=? AND categoryId=? AND deletedAt IS NULL')
     .get(req.user.id, categoryId);
   if (existing) {
     db.prepare('UPDATE budgets SET amount=? WHERE id=? AND userId=?')

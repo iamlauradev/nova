@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { COLORS } from '../theme';
 
@@ -14,7 +14,7 @@ function cornerColor(color) {
   return `${base}6a`;
 }
 
-export default function GlowCard({ children, style, color, noPadding }) {
+const GlowCard = memo(function GlowCard({ children, style, color, noPadding }) {
   const glowColor = color || COLORS.primaryGlow;
   const cColor = cornerColor(color);
 
@@ -27,7 +27,9 @@ export default function GlowCard({ children, style, color, noPadding }) {
       <View style={noPadding ? styles.innerNoPad : styles.inner}>{children}</View>
     </View>
   );
-}
+});
+
+export default GlowCard;
 
 const CORNER = 10;
 

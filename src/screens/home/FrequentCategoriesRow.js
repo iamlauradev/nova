@@ -1,11 +1,11 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../theme';
 import CategoryImage from '../../components/CategoryImage';
 
-export default function FrequentCategoriesRow({ cats, type, pinnedIds, onPress, onLongPress, onPickerOpen, onAddEmpty }) {
+const FrequentCategoriesRow = memo(function FrequentCategoriesRow({ cats, type, pinnedIds, onPress, onLongPress, onPickerOpen, onAddEmpty }) {
   const color = type === 'expense' ? COLORS.expense : COLORS.income;
   const glow  = type === 'expense' ? COLORS.expenseGlow : COLORS.incomeGlow;
   const emptyLabel = type === 'expense' ? 'Añadir gasto' : 'Añadir ingreso';
@@ -41,7 +41,9 @@ export default function FrequentCategoriesRow({ cats, type, pinnedIds, onPress, 
       </TouchableOpacity>
     </ScrollView>
   );
-}
+});
+
+export default FrequentCategoriesRow;
 
 const styles = StyleSheet.create({
   quickScroll: { paddingBottom: 4, gap: 8, paddingHorizontal: 2 },

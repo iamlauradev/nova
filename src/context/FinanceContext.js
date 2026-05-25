@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api, getToken } from '../services/api';
@@ -258,7 +258,7 @@ export function FinanceProvider({ children, isAuthenticated }) {
   };
 
   // --- Transacciones ---
-  const addTransaction = async (data) => {
+  const addTransaction = useCallback(async (data) => {
     const tx = {
       id: `tx_${Date.now()}`,
       date: data.date || new Date().toISOString(),
@@ -275,7 +275,7 @@ export function FinanceProvider({ children, isAuthenticated }) {
       );
     }
     setTransactions(prev => [tx, ...prev]);
-  };
+  }, []);
 
   const editTransaction = async (id, data) => {
     const old = transactions.find(t => t.id === id);
@@ -583,7 +583,7 @@ export function FinanceProvider({ children, isAuthenticated }) {
     await AsyncStorage.setItem(HIDDEN_CATS_KEY, JSON.stringify(serializable)).catch(() => {});
   };
 
-  const categories = {
+  const categories = useMemo(() => ({
     income:  [
       ...DEFAULT_CATEGORIES.income.filter(c => !hiddenDefaultCats.income.has(c.id)),
       ...customCategories.income,
@@ -592,20 +592,29 @@ export function FinanceProvider({ children, isAuthenticated }) {
       ...DEFAULT_CATEGORIES.expense.filter(c => !hiddenDefaultCats.expense.has(c.id)),
       ...customCategories.expense,
     ],
-  };
+  }), [hiddenDefaultCats, customCategories]);
 
   // --- Computed ---
-  const totalBalance = accounts.filter(a => a.type !== 'savings').reduce((s, a) => s + a.balance, 0);
-  const totalSavings = accounts.filter(a => a.type === 'savings').reduce((s, a) => s + a.balance, 0);
-  const savingsAccounts = accounts.filter(a => a.type === 'savings');
+  const totalBalance = useMemo(
+    () => accounts.filter(a => a.type !== 'savings').reduce((s, a) => s + a.balance, 0),
+    [accounts],
+  );
+  const totalSavings = useMemo(
+    () => accounts.filter(a => a.type === 'savings').reduce((s, a) => s + a.balance, 0),
+    [accounts],
+  );
+  const savingsAccounts = useMemo(() => accounts.filter(a => a.type === 'savings'), [accounts]);
 
-  const monthlyFixed = recurringItems
-    .filter(r => r.active && r.type === 'expense' && (r.frequency === 'monthly' || r.customMonths === 1))
-    .reduce((s, r) => s + r.amount, 0);
+  const monthlyFixed = useMemo(
+    () => recurringItems
+      .filter(r => r.active && r.type === 'expense' && (r.frequency === 'monthly' || r.customMonths === 1))
+      .reduce((s, r) => s + r.amount, 0),
+    [recurringItems],
+  );
   const freeMoney = totalBalance - monthlyFixed;
 
-  const activeDebts = debts.filter(d => d.active === 1 || d.active === true);
-  const activeLoans = loans.filter(l => l.active === 1 || l.active === true);
+  const activeDebts = useMemo(() => debts.filter(d => d.active === 1 || d.active === true), [debts]);
+  const activeLoans = useMemo(() => loans.filter(l => l.active === 1 || l.active === true), [loans]);
 
   const getTransactionsByPeriod = (period) => {
     const now = new Date();

@@ -8,11 +8,20 @@ export function parseAmount(value: string | number | null | undefined): number {
   return isNaN(n) ? 0 : Math.round(n * 100) / 100;
 }
 
-/** Formats a number as EUR currency string using Spanish locale. */
+let _currency = 'EUR';
+let _locale   = 'es-ES';
+
+/** Called by SettingsContext when the user changes their currency preference. */
+export function configureCurrency(currency: string, locale: string) {
+  _currency = currency;
+  _locale   = locale;
+}
+
+/** Formats a number using the user's configured currency and locale. */
 export function formatCurrency(n: number | null | undefined): string {
-  return new Intl.NumberFormat('es-ES', {
+  return new Intl.NumberFormat(_locale, {
     style: 'currency',
-    currency: 'EUR',
+    currency: _currency,
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(n || 0);

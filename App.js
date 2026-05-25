@@ -35,6 +35,7 @@ import HomeScreen from './src/screens/HomeScreen';
 import AccountsScreen from './src/screens/AccountsScreen';
 import TransactionsScreen from './src/screens/TransactionsScreen';
 import StatsScreen from './src/screens/StatsScreen';
+import EnvelopesScreen from './src/screens/EnvelopesScreen';
 import RecurringScreen from './src/screens/RecurringScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import CategoriesScreen from './src/screens/CategoriesScreen';
@@ -187,6 +188,14 @@ function TabsNavigator({ user, logout }) {
         }}
       />
       <Tab.Screen
+        name="Sobres"
+        component={EnvelopesScreen}
+        options={{
+          headerTitle: '⟨ SOBRES ⟩',
+          tabBarIcon: ({ color, focused }) => <TabIcon name="layers" color={color} focused={focused} />,
+        }}
+      />
+      <Tab.Screen
         name="Fijos"
         component={RecurringScreen}
         options={{
@@ -291,14 +300,14 @@ function MainApp({ user, logout }) {
         <ConnectionErrorGate>
         <NavigationContainer theme={NAV_THEME}>
           <CelebrationLayer>
-          <Stack.Navigator screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="Tabs">
+          <Stack.Navigator screenOptions={{ headerShown: false, animation: 'slide_from_right' }}>
+            <Stack.Screen name="Tabs" options={{ animation: 'none' }}>
               {() => <FirstTimeGate><TabsNavigator user={user} logout={logout} /></FirstTimeGate>}
             </Stack.Screen>
             <Stack.Screen name="Settings"   component={SettingsScreen} />
             <Stack.Screen name="Categories" component={CategoriesScreen} />
             <Stack.Screen name="Profile"    component={ProfileScreen} />
-            <Stack.Screen name="Search"     component={SearchScreen} options={{ presentation: 'modal' }} />
+            <Stack.Screen name="Search"     component={SearchScreen} options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
           </Stack.Navigator>
           </CelebrationLayer>
         </NavigationContainer>

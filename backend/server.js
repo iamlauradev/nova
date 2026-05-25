@@ -14,7 +14,8 @@ if (process.env.SENTRY_DSN) {
 }
 
 const app = express();
-app.use(cors());
+app.set('trust proxy', 1); // Traefik sits one hop in front
+app.use(cors({ origin: ['https://nova.iamlaura.dev', 'http://localhost:8081'] }));
 app.use(express.json());
 
 // E5 — HTTP request logger
@@ -38,6 +39,7 @@ app.use('/api/budgets',            require('./routes/budgets'));
 app.use('/api/goals',              require('./routes/goals'));
 app.use('/api/debts',              require('./routes/debts'));
 app.use('/api/loans',              require('./routes/loans'));
+app.use('/api/envelopes',           require('./routes/envelopes'));
 app.use('/api/events',             require('./routes/events'));
 
 app.get('/health', (req, res) => {

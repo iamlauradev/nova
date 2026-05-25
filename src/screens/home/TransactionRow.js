@@ -1,11 +1,11 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS } from '../../theme';
 import { formatCurrency, formatDateShort as formatDate } from '../../utils';
 import CategoryImage from '../../components/CategoryImage';
 
-export default function TransactionRow({ tx, accounts, categories }) {
+const TransactionRow = memo(function TransactionRow({ tx, accounts, categories }) {
   const account = accounts.find(a => a.id === tx.accountId);
   const isTransfer = tx.type === 'transfer-in' || tx.type === 'transfer-out';
   const isIncome = tx.type === 'income';
@@ -43,7 +43,9 @@ export default function TransactionRow({ tx, accounts, categories }) {
       </Text>
     </View>
   );
-}
+});
+
+export default TransactionRow;
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', padding: 12, gap: 12 },

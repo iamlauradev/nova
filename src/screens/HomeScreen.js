@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import {
-  View, Text, ScrollView, TouchableOpacity, StyleSheet, Modal, Animated,
+  View, Text, ScrollView, TouchableOpacity, StyleSheet, Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
@@ -46,17 +46,18 @@ export default function HomeScreen() {
     addTransaction, budgets, recurringItems, isLoaded,
   } = useFinance();
 
-  const mainAccounts = accounts.filter(a => a.type !== 'savings');
+  const mainAccounts = useMemo(() => accounts.filter(a => a.type !== 'savings'), [accounts]);
+  const defaultAccountId = useMemo(() => accounts.find(a => a.type !== 'savings')?.id ?? '', [accounts]);
 
   // ── Account visibility toggle ─────────────────────────────────────────────
   const [hiddenIds, setHiddenIds] = useState(new Set());
-  const toggleAccount = (id) => {
+  const toggleAccount = useCallback((id) => {
     setHiddenIds(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
-  };
+  }, []);
   const isFiltered     = hiddenIds.size > 0;
   const visibleBalance = useMemo(
     () => mainAccounts.filter(a => !hiddenIds.has(a.id)).reduce((s, a) => s + (a.balance || 0), 0),
@@ -85,10 +86,14 @@ export default function HomeScreen() {
     return d.getMonth() === prevMonth && d.getFullYear() === prevYear;
   }), [transactions, prevMonth, prevYear]);
 
-  const prevIncome   = prevMonthTxs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-  const prevExpense  = prevMonthTxs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-  const incomeDelta  = prevIncome  > 0 ? ((monthIncome  - prevIncome)  / prevIncome)  * 100 : null;
-  const expenseDelta = prevExpense > 0 ? ((monthExpense - prevExpense) / prevExpense) * 100 : null;
+  const { incomeDelta, expenseDelta } = useMemo(() => {
+    const pIncome  = prevMonthTxs.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+    const pExpense = prevMonthTxs.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+    return {
+      incomeDelta:  pIncome  > 0 ? ((monthIncome  - pIncome)  / pIncome)  * 100 : null,
+      expenseDelta: pExpense > 0 ? ((monthExpense - pExpense) / pExpense) * 100 : null,
+    };
+  }, [prevMonthTxs, monthIncome, monthExpense]);
 
   // ── Net worth ─────────────────────────────────────────────────────────────
   const totalAssets      = accounts.reduce((s, a) => s + a.balance, 0);
@@ -131,8 +136,21 @@ export default function HomeScreen() {
       .slice(0, 5);
   }, [recurringItems]);
 
-  // ── Quick actions ─────────────────────────────────────────────────────────
+  // ── Recent transactions (memoized para que RecentTransactionsList no re-renderice) ─
+  const recent = useMemo(() => transactions.slice(0, 8), [transactions]);
+
+  // ── Callbacks estables de navegación ─────────────────────────────────────
+  const onViewAll     = useCallback(() => nav.navigate('Transacciones'),                     [nav]);
+  const onAddIncome   = useCallback(() => nav.navigate('Transacciones', { openAdd: 'income' }),   [nav]);
+  const onAddExpense  = useCallback(() => nav.navigate('Transacciones', { openAdd: 'expense' }),  [nav]);
+  const onAddTransfer = useCallback(() => nav.navigate('Transacciones', { openAdd: 'transfer' }), [nav]);
+
+  // ── Quick actions (debe ir antes de los callbacks de modal) ───────────────
   const qa = useQuickActions({ transactions, categories, accounts, addTransaction });
+
+  // useState setters son estables: podemos usarlos como dependencias sin problema
+  const onCloseExpenseModal = useCallback(() => qa.setQuickModal(null),       [qa.setQuickModal]);
+  const onCloseIncomeModal  = useCallback(() => qa.setQuickIncomeModal(null), [qa.setQuickIncomeModal]);
 
   if (!isLoaded) return <HomeSkeleton />;
 
@@ -308,17 +326,17 @@ export default function HomeScreen() {
 
           {/* ── ACCIONES RÁPIDAS ── */}
           <View style={styles.actionsRow}>
-            <TouchableOpacity style={[styles.actionBtn, { borderColor: COLORS.income }]} onPress={() => nav.navigate('Transacciones', { openAdd: 'income' })} activeOpacity={0.8}>
+            <TouchableOpacity style={[styles.actionBtn, { borderColor: COLORS.income }]} onPress={onAddIncome} activeOpacity={0.8}>
               <LinearGradient colors={[COLORS.incomeGlow, 'transparent']} style={StyleSheet.absoluteFill} />
               <Ionicons name="arrow-up-circle" size={20} color={COLORS.income} />
               <Text style={[styles.actionText, { color: COLORS.income }]}>INGRESO</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.actionBtn, { borderColor: COLORS.expense }]} onPress={() => nav.navigate('Transacciones', { openAdd: 'expense' })} activeOpacity={0.8}>
+            <TouchableOpacity style={[styles.actionBtn, { borderColor: COLORS.expense }]} onPress={onAddExpense} activeOpacity={0.8}>
               <LinearGradient colors={[COLORS.expenseGlow, 'transparent']} style={StyleSheet.absoluteFill} />
               <Ionicons name="arrow-down-circle" size={20} color={COLORS.expense} />
               <Text style={[styles.actionText, { color: COLORS.expense }]}>GASTO</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.actionBtn, { borderColor: COLORS.gold, flex: 0.7 }]} onPress={() => nav.navigate('Transacciones', { openAdd: 'transfer' })} activeOpacity={0.8}>
+            <TouchableOpacity style={[styles.actionBtn, { borderColor: COLORS.gold, flex: 0.7 }]} onPress={onAddTransfer} activeOpacity={0.8}>
               <LinearGradient colors={[`${COLORS.gold}22`, 'transparent']} style={StyleSheet.absoluteFill} />
               <Ionicons name="swap-horizontal" size={20} color={COLORS.gold} />
               <Text style={[styles.actionText, { color: COLORS.gold }]}>MOVER</Text>
@@ -326,21 +344,21 @@ export default function HomeScreen() {
           </View>
 
           {/* ── GASTOS RÁPIDOS ── */}
-          <SectionHeader title="⚡ GASTOS RÁPIDOS" right={<TouchableOpacity onPress={() => qa.setShowCatPicker(true)}><Text style={styles.seeAll}>+ Añadir</Text></TouchableOpacity>} />
+          <SectionHeader title="⚡ GASTOS RÁPIDOS" right={<TouchableOpacity onPress={qa.openExpenseCatPicker}><Text style={styles.seeAll}>+ Añadir</Text></TouchableOpacity>} />
           <FrequentCategoriesRow
             cats={qa.quickCats} type="expense" pinnedIds={qa.pinnedCatIds}
             onPress={qa.openQuickAdd} onLongPress={qa.unpinCategory}
-            onPickerOpen={() => qa.setShowCatPicker(true)}
-            onAddEmpty={() => nav.navigate('Transacciones', { openAdd: 'expense' })}
+            onPickerOpen={qa.openExpenseCatPicker}
+            onAddEmpty={onAddExpense}
           />
 
           {/* ── INGRESOS RÁPIDOS ── */}
-          <SectionHeader title="⚡ INGRESOS RÁPIDOS" right={<TouchableOpacity onPress={() => qa.setShowIncomeCatPicker(true)}><Text style={styles.seeAll}>+ Añadir</Text></TouchableOpacity>} />
+          <SectionHeader title="⚡ INGRESOS RÁPIDOS" right={<TouchableOpacity onPress={qa.openIncomeCatPicker}><Text style={styles.seeAll}>+ Añadir</Text></TouchableOpacity>} />
           <FrequentCategoriesRow
             cats={qa.quickIncomeCats} type="income" pinnedIds={qa.pinnedIncomeIds}
             onPress={qa.openQuickIncomeAdd} onLongPress={qa.unpinIncomeCategory}
-            onPickerOpen={() => qa.setShowIncomeCatPicker(true)}
-            onAddEmpty={() => nav.navigate('Transacciones', { openAdd: 'income' })}
+            onPickerOpen={qa.openIncomeCatPicker}
+            onAddEmpty={onAddIncome}
           />
 
           {/* ── CUENTAS ── */}
@@ -446,10 +464,10 @@ export default function HomeScreen() {
           </GlowCard>
 
           <RecentTransactionsList
-            recent={transactions.slice(0, 8)}
+            recent={recent}
             accounts={accounts}
             categories={categories}
-            onViewAll={() => nav.navigate('Transacciones')}
+            onViewAll={onViewAll}
           />
         </View>
       </ScrollView>
@@ -457,25 +475,23 @@ export default function HomeScreen() {
       {/* ── Modals ── */}
       <QuickActionModal
         visible={!!qa.quickModal} type="expense" cat={qa.quickModal?.cat}
-        accounts={accounts} amount={qa.quickAmount} onChangeAmount={qa.setQuickAmount}
-        accountId={qa.quickAccountId} onChangeAccountId={qa.setQuickAccountId}
-        onClose={() => qa.setQuickModal(null)} onConfirm={qa.confirmQuickAdd}
+        accounts={accounts} defaultAccountId={defaultAccountId}
+        onClose={onCloseExpenseModal} onConfirm={qa.confirmQuickAdd}
       />
       <QuickActionModal
         visible={!!qa.quickIncomeModal} type="income" cat={qa.quickIncomeModal?.cat}
-        accounts={accounts} amount={qa.quickIncomeAmount} onChangeAmount={qa.setQuickIncomeAmount}
-        accountId={qa.quickIncomeAccountId} onChangeAccountId={qa.setQuickIncomeAccountId}
-        onClose={() => qa.setQuickIncomeModal(null)} onConfirm={qa.confirmQuickIncomeAdd}
+        accounts={accounts} defaultAccountId={defaultAccountId}
+        onClose={onCloseIncomeModal} onConfirm={qa.confirmQuickIncomeAdd}
       />
       <CategoryPickerModal
         visible={qa.showCatPicker} type="expense" categories={categories}
         pinnedIds={qa.pinnedCatIds} onPin={qa.pinCategory} onUnpin={qa.unpinCategory}
-        onClose={() => qa.setShowCatPicker(false)}
+        onClose={qa.closeExpenseCatPicker}
       />
       <CategoryPickerModal
         visible={qa.showIncomeCatPicker} type="income" categories={categories}
         pinnedIds={qa.pinnedIncomeIds} onPin={qa.pinIncomeCategory} onUnpin={qa.unpinIncomeCategory}
-        onClose={() => qa.setShowIncomeCatPicker(false)}
+        onClose={qa.closeIncomeCatPicker}
       />
     </View>
   );
