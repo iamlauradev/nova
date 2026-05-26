@@ -6,7 +6,7 @@ A self-hosted personal finance tracker for Android. Built with React Native / Ex
 
 - **Multi-account management** — checking, savings, and custom accounts with balance tracking
 - **Transactions** — income, expenses, and transfers between accounts with 100+ category icons
-- **Recurring items** — fixed monthly commitments that auto-apply each period
+- **Recurring items** — track fixed periodic commitments (rent, subscriptions, salary) with push notification reminders before each due date
 - **Debts & loans** — track money you owe and money owed to you, with payment history
 - **Savings goals** — set targets and fund them with savings transfers
 - **Envelope budgeting** — allocate budgets per category per month
