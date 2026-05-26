@@ -25,6 +25,9 @@ web-build/
 *.log
 npm-debug.log*
 
+# Registro de actividad Claude (nunca subir a GitHub)
+claude-activity.txt
+
 # OS
 .DS_Store
 Thumbs.db
