@@ -60,7 +60,7 @@ router.post('/:id/pay', auth, (req, res) => {
   if (!accountId) return res.status(400).json({ error: 'Cuenta requerida' });
 
   const txId = `debt_${Date.now()}`;
-  const txDate = date || new Date().toISOString();
+  const txDate = date || (() => { const n = new Date(); return `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`; })();
   const desc = description || `Pago: ${debt.name}`;
 
   db.prepare('UPDATE accounts SET balance = ROUND(balance - ?, 2) WHERE id=? AND userId=?')

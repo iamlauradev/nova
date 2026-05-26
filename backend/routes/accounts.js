@@ -38,12 +38,10 @@ router.put('/:id', auth, (req, res) => {
   }, req.body);
   if (err) return res.status(400).json({ error: err });
 
-  const { name, type, balance, color } = req.body;
-  if (balance !== undefined && (typeof balance !== 'number' || isNaN(balance)))
-    return res.status(400).json({ error: '"balance" debe ser un número' });
+  const { name, type, color } = req.body;
 
-  db.prepare('UPDATE accounts SET name=?, type=?, balance=?, color=? WHERE id=? AND userId=?')
-    .run(name, type, balance ?? 0, color ?? '', req.params.id, req.user.id);
+  db.prepare('UPDATE accounts SET name=?, type=?, color=? WHERE id=? AND userId=?')
+    .run(name, type, color ?? '', req.params.id, req.user.id);
   res.json({ ok: true });
 });
 

@@ -41,7 +41,7 @@ router.post('/:id/apply', auth, (req, res) => {
   const yearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
   if (transfer.lastApplied === yearMonth) return res.status(400).json({ error: 'Ya aplicada este mes' });
 
-  const txDate = now.toISOString();
+  const txDate = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
   const txIdOut = `stx_out_${Date.now()}`;
   const txIdIn  = `stx_in_${Date.now() + 1}`;
 

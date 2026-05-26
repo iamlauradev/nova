@@ -52,7 +52,7 @@ router.post('/:id/apply', auth, (req, res) => {
   db.prepare(`INSERT INTO transactions (id, userId, accountId, type, amount, description, category, date, notes, transferGroup)
     VALUES (?, ?, ?, 'expense', ?, ?, 'financiado', ?, ?, '')`)
     .run(txId, req.user.id, item.accountId, item.monthlyAmount,
-         `${item.name} (${newCount}/${item.months})`, now.toISOString(),
+         `${item.name} (${newCount}/${item.months})`, `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`,
          `Cargo ${newCount} de ${item.months}`);
 
   const done = newCount >= item.months;

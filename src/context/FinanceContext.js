@@ -232,7 +232,7 @@ export function FinanceProvider({ children, isAuthenticated }) {
       updated = { ...current, ...data };
       return prev.map(a => a.id === id ? updated : a);
     });
-    await api.updateAccount(id, updated);
+    await api.updateAccount(id, data);
   }, []);
 
   const archiveAccount = useCallback(async (id) => {
