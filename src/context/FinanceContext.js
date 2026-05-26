@@ -305,7 +305,8 @@ export function FinanceProvider({ children, isAuthenticated }) {
     });
     await api.deleteTransaction(id);
     if (tx) {
-      const revert = tx.type === 'income' ? -tx.amount : tx.type === 'expense' ? tx.amount : 0;
+      const revert = (tx.type === 'income' || tx.type === 'transfer-in') ? -tx.amount
+                   : (tx.type === 'expense' || tx.type === 'transfer-out') ? tx.amount : 0;
       if (revert !== 0) {
         setAccounts(prev =>
           prev.map(a => a.id === tx.accountId ? { ...a, balance: +(a.balance + revert).toFixed(2) } : a)
@@ -313,7 +314,8 @@ export function FinanceProvider({ children, isAuthenticated }) {
       }
     }
     if (paired) {
-      const pRevert = paired.type === 'income' ? -paired.amount : paired.type === 'expense' ? paired.amount : 0;
+      const pRevert = (paired.type === 'income' || paired.type === 'transfer-in') ? -paired.amount
+                    : (paired.type === 'expense' || paired.type === 'transfer-out') ? paired.amount : 0;
       if (pRevert !== 0) {
         setAccounts(prev =>
           prev.map(a => a.id === paired.accountId ? { ...a, balance: +(a.balance + pRevert).toFixed(2) } : a)

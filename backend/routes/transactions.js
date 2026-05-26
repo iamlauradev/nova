@@ -82,10 +82,10 @@ router.delete('/:id', auth, (req, res) => {
   const tx = db.prepare('SELECT * FROM transactions WHERE id=? AND userId=?')
     .get(req.params.id, req.user.id);
   if (tx) {
-    if (tx.type === 'income') {
+    if (tx.type === 'income' || tx.type === 'transfer-in') {
       db.prepare('UPDATE accounts SET balance = ROUND(balance - ?, 2) WHERE id=? AND userId=?')
         .run(tx.amount, tx.accountId, req.user.id);
-    } else if (tx.type === 'expense') {
+    } else if (tx.type === 'expense' || tx.type === 'transfer-out') {
       db.prepare('UPDATE accounts SET balance = ROUND(balance + ?, 2) WHERE id=? AND userId=?')
         .run(tx.amount, tx.accountId, req.user.id);
     }
@@ -93,10 +93,10 @@ router.delete('/:id', auth, (req, res) => {
       const paired = db.prepare('SELECT * FROM transactions WHERE transferGroup=? AND id!=? AND userId=? AND deletedAt IS NULL')
         .get(tx.transferGroup, req.params.id, req.user.id);
       if (paired) {
-        if (paired.type === 'income') {
+        if (paired.type === 'income' || paired.type === 'transfer-in') {
           db.prepare('UPDATE accounts SET balance = ROUND(balance - ?, 2) WHERE id=? AND userId=?')
             .run(paired.amount, paired.accountId, req.user.id);
-        } else if (paired.type === 'expense') {
+        } else if (paired.type === 'expense' || paired.type === 'transfer-out') {
           db.prepare('UPDATE accounts SET balance = ROUND(balance + ?, 2) WHERE id=? AND userId=?')
             .run(paired.amount, paired.accountId, req.user.id);
         }
