@@ -15,7 +15,9 @@ import { COLORS } from '../theme';
 export default function DateField({ value, onChange, label, style }) {
   const [show, setShow] = useState(false);
 
-  const date = value ? new Date(value) : new Date();
+  const date = value
+    ? (() => { const [y, m, d] = value.split('T')[0].split('-').map(Number); return new Date(y, m - 1, d); })()
+    : new Date();
 
   const displayDate = value
     ? (() => {
@@ -27,7 +29,12 @@ export default function DateField({ value, onChange, label, style }) {
   const handleChange = (event, selected) => {
     if (Platform.OS === 'android') setShow(false);
     if (event.type === 'dismissed') return;
-    if (selected) onChange(selected.toISOString().split('T')[0]);
+    if (selected) {
+      const y = selected.getFullYear();
+      const m = String(selected.getMonth() + 1).padStart(2, '0');
+      const d = String(selected.getDate()).padStart(2, '0');
+      onChange(`${y}-${m}-${d}`);
+    }
   };
 
   return (
