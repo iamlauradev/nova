@@ -1232,7 +1232,7 @@ const TxItem = React.memo(function TxItem({ tx, accounts, categories, onEdit, on
       </View>
       <View style={styles.txRight}>
         <Text style={[styles.txAmount, { color: isTransferIn ? COLORS.income : isTransferOut ? COLORS.expense : isIncome ? COLORS.income : COLORS.expense }]}>
-          {isTransferIn ? '+' : '-'}{formatCurrency(tx.amount)}
+          {isTransferIn || isIncome ? '+' : '-'}{formatCurrency(tx.amount)}
         </Text>
         <View style={styles.txActions}>
           {onEdit && (
