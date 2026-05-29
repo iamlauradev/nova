@@ -145,7 +145,8 @@ export const api = {
   getRecurring:    ()         => req('GET',    '/api/recurring'),
   addRecurring:    (data)     => req('POST',   '/api/recurring', data),
   updateRecurring: (id, data) => req('PUT',    `/api/recurring/${id}`, data),
-  deleteRecurring: (id)       => req('DELETE', `/api/recurring/${id}`),
+  deleteRecurring:  (id)       => req('DELETE', `/api/recurring/${id}`),
+  applyRecurring:   (id)       => req('POST',   `/api/recurring/${id}/apply`),
 
   // Savings transfers
   getSavingsTransfers:   ()         => req('GET',    '/api/savings-transfers'),

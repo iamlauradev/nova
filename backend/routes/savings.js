@@ -45,20 +45,20 @@ router.post('/:id/apply', auth, (req, res) => {
   const txIdOut = `stx_out_${Date.now()}`;
   const txIdIn  = `stx_in_${Date.now() + 1}`;
 
-  db.prepare('UPDATE accounts SET balance = ROUND(balance - ?, 2) WHERE id=? AND userId=?')
-    .run(transfer.amount, transfer.fromAccountId, req.user.id);
-  db.prepare(`INSERT INTO transactions (id, userId, accountId, type, amount, description, category, date, notes, transferGroup)
-    VALUES (?, ?, ?, 'expense', ?, ?, 'ahorro', ?, '', '')`)
-    .run(txIdOut, req.user.id, transfer.fromAccountId, transfer.amount, `Ahorro: ${transfer.name}`, txDate);
-
-  db.prepare('UPDATE accounts SET balance = ROUND(balance + ?, 2) WHERE id=? AND userId=?')
-    .run(transfer.amount, transfer.toAccountId, req.user.id);
-  db.prepare(`INSERT INTO transactions (id, userId, accountId, type, amount, description, category, date, notes, transferGroup)
-    VALUES (?, ?, ?, 'income', ?, ?, 'ahorro', ?, '', '')`)
-    .run(txIdIn, req.user.id, transfer.toAccountId, transfer.amount, `Ahorro: ${transfer.name}`, txDate);
-
-  db.prepare('UPDATE savingsTransfers SET lastApplied=? WHERE id=? AND userId=?')
-    .run(yearMonth, req.params.id, req.user.id);
+  db.transaction(() => {
+    db.prepare('UPDATE accounts SET balance = ROUND(balance - ?, 2) WHERE id=? AND userId=?')
+      .run(transfer.amount, transfer.fromAccountId, req.user.id);
+    db.prepare(`INSERT INTO transactions (id, userId, accountId, type, amount, description, category, date, notes, transferGroup)
+      VALUES (?, ?, ?, 'expense', ?, ?, 'ahorro', ?, '', '')`)
+      .run(txIdOut, req.user.id, transfer.fromAccountId, transfer.amount, `Ahorro: ${transfer.name}`, txDate);
+    db.prepare('UPDATE accounts SET balance = ROUND(balance + ?, 2) WHERE id=? AND userId=?')
+      .run(transfer.amount, transfer.toAccountId, req.user.id);
+    db.prepare(`INSERT INTO transactions (id, userId, accountId, type, amount, description, category, date, notes, transferGroup)
+      VALUES (?, ?, ?, 'income', ?, ?, 'ahorro', ?, '', '')`)
+      .run(txIdIn, req.user.id, transfer.toAccountId, transfer.amount, `Ahorro: ${transfer.name}`, txDate);
+    db.prepare('UPDATE savingsTransfers SET lastApplied=? WHERE id=? AND userId=?')
+      .run(yearMonth, req.params.id, req.user.id);
+  })();
 
   res.json({ ok: true, yearMonth });
 });

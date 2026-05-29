@@ -10,6 +10,22 @@ const CUSTOM_CATS_KEY   = '@nova_custom_cats';
 const HIDDEN_CATS_KEY   = '@nova_hidden_cats';
 const FinanceContext = createContext(null);
 
+function isRecurringDue(item, today, yearMonth) {
+  if (!item.active || !item.accountId || !item.dayOfMonth) return false;
+  if (today < parseInt(item.dayOfMonth)) return false;
+  if (!item.lastApplied) return true;
+  const [lastYear, lastMonth] = item.lastApplied.split('-').map(Number);
+  const [nowYear, nowMonth] = yearMonth.split('-').map(Number);
+  const monthsElapsed = (nowYear - lastYear) * 12 + (nowMonth - lastMonth);
+  switch (item.frequency) {
+    case 'monthly':   return monthsElapsed >= 1;
+    case 'quarterly': return monthsElapsed >= 3;
+    case 'yearly':    return monthsElapsed >= 12;
+    case 'custom':    return monthsElapsed >= (item.customMonths || 1);
+    default:          return false;
+  }
+}
+
 export function FinanceProvider({ children, isAuthenticated }) {
   const [accounts, setAccounts] = useState([]);
   const [archivedAccounts, setArchivedAccounts] = useState([]);
@@ -94,22 +110,26 @@ export function FinanceProvider({ children, isAuthenticated }) {
       const pendingFinanced = financedVal.filter(f =>
         f.active && f.lastApplied !== yearMonth && today >= f.dayOfMonth && f.appliedCount < f.months
       );
+      const pendingRecurring = recs.filter(r => isRecurringDue(r, today, yearMonth));
 
-      if (pendingTransfers.length > 0 || pendingFinanced.length > 0) {
+      if (pendingTransfers.length > 0 || pendingFinanced.length > 0 || pendingRecurring.length > 0) {
         await Promise.allSettled([
           ...pendingTransfers.map(t => api.applySavingsTransfer(t.id)),
           ...pendingFinanced.map(f => api.applyFinancedItem(f.id)),
+          ...pendingRecurring.map(r => api.applyRecurring(r.id)),
         ]);
-        const [freshAccs, freshTxs, freshTransfers, freshFinanced] = await Promise.allSettled([
+        const [freshAccs, freshTxs, freshTransfers, freshFinanced, freshRecs] = await Promise.allSettled([
           api.getAccounts(),
           api.getTransactions(),
           api.getSavingsTransfers(),
           api.getFinancedItems(),
+          api.getRecurring(),
         ]);
         if (freshAccs.status      === 'fulfilled') setAccounts(freshAccs.value);
         if (freshTxs.status       === 'fulfilled') setTransactions(freshTxs.value);
         if (freshTransfers.status === 'fulfilled') setSavingsTransfers(freshTransfers.value);
         if (freshFinanced.status  === 'fulfilled') setFinancedItems(freshFinanced.value);
+        if (freshRecs.status      === 'fulfilled') setRecurringItems(freshRecs.value);
       }
     } catch (e) {
       setSyncError(e.message);
@@ -276,7 +296,12 @@ export function FinanceProvider({ children, isAuthenticated }) {
       old = prev.find(t => t.id === id);
       return prev.map(t => t.id === id ? { ...t, ...data } : t);
     });
-    await api.editTransaction(id, data);
+    try {
+      await api.editTransaction(id, data);
+    } catch (e) {
+      setTransactions(prev => prev.map(t => t.id === id ? old : t));
+      throw e;
+    }
     if (old) {
       const revert = old.type === 'income' ? -old.amount : old.type === 'expense' ? old.amount : 0;
       if (revert !== 0) {
@@ -303,7 +328,15 @@ export function FinanceProvider({ children, isAuthenticated }) {
       const toRemove = new Set([id, paired?.id].filter(Boolean));
       return prev.filter(t => !toRemove.has(t.id));
     });
-    await api.deleteTransaction(id);
+    try {
+      await api.deleteTransaction(id);
+    } catch (e) {
+      setTransactions(prev => {
+        const toRestore = [tx, paired].filter(Boolean);
+        return [...toRestore, ...prev];
+      });
+      throw e;
+    }
     if (tx) {
       const revert = (tx.type === 'income' || tx.type === 'transfer-in') ? -tx.amount
                    : (tx.type === 'expense' || tx.type === 'transfer-out') ? tx.amount : 0;

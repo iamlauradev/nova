@@ -47,17 +47,18 @@ router.post('/:id/apply', auth, (req, res) => {
   const newCount = item.appliedCount + 1;
   const txId = `fi_${Date.now()}`;
 
-  db.prepare('UPDATE accounts SET balance = ROUND(balance - ?, 2) WHERE id=? AND userId=?')
-    .run(item.monthlyAmount, item.accountId, req.user.id);
-  db.prepare(`INSERT INTO transactions (id, userId, accountId, type, amount, description, category, date, notes, transferGroup)
-    VALUES (?, ?, ?, 'expense', ?, ?, 'financiado', ?, ?, '')`)
-    .run(txId, req.user.id, item.accountId, item.monthlyAmount,
-         `${item.name} (${newCount}/${item.months})`, `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`,
-         `Cargo ${newCount} de ${item.months}`);
-
   const done = newCount >= item.months;
-  db.prepare('UPDATE financedItems SET appliedCount=?, lastApplied=?, active=? WHERE id=? AND userId=?')
-    .run(newCount, yearMonth, done ? 0 : 1, req.params.id, req.user.id);
+  db.transaction(() => {
+    db.prepare('UPDATE accounts SET balance = ROUND(balance - ?, 2) WHERE id=? AND userId=?')
+      .run(item.monthlyAmount, item.accountId, req.user.id);
+    db.prepare(`INSERT INTO transactions (id, userId, accountId, type, amount, description, category, date, notes, transferGroup)
+      VALUES (?, ?, ?, 'expense', ?, ?, 'financiado', ?, ?, '')`)
+      .run(txId, req.user.id, item.accountId, item.monthlyAmount,
+           `${item.name} (${newCount}/${item.months})`, `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`,
+           `Cargo ${newCount} de ${item.months}`);
+    db.prepare('UPDATE financedItems SET appliedCount=?, lastApplied=?, active=? WHERE id=? AND userId=?')
+      .run(newCount, yearMonth, done ? 0 : 1, req.params.id, req.user.id);
+  })();
 
   res.json({ ok: true, appliedCount: newCount, completed: done });
 });

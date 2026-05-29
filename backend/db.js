@@ -192,6 +192,7 @@ const MIGRATIONS = [
     UNIQUE(userId, year, month, categoryId),
     FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
   )` },
+  { name: '015_recurring_lastApplied', sql: 'ALTER TABLE recurringItems ADD COLUMN lastApplied TEXT DEFAULT ""' },
 ];
 
 const appliedMigrations = new Set(
