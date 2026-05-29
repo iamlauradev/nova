@@ -1,12 +1,11 @@
 const db = require('../db');
 
-const auditLog = db.prepare(
-  'INSERT INTO audit_log (userId, entity, entityId, action, payload) VALUES (?, ?, ?, ?, ?)'
-);
-
-function audit(userId, entity, entityId, action, payload) {
+async function audit(userId, entity, entityId, action, payload) {
   try {
-    auditLog.run(userId, entity, String(entityId), action, payload ? JSON.stringify(payload) : null);
+    await db.execute(
+      `INSERT INTO audit_log ("userId", entity, "entityId", action, payload) VALUES ($1, $2, $3, $4, $5)`,
+      [userId, entity, String(entityId), action, payload ? JSON.stringify(payload) : null]
+    );
   } catch (_) {}
 }
 

@@ -4,26 +4,29 @@ const { auth } = require('../middleware/auth');
 
 const router = express.Router();
 
-router.get('/', auth, (req, res) => {
-  res.json(db.prepare('SELECT * FROM budgets WHERE userId=? AND deletedAt IS NULL').all(req.user.id));
+router.get('/', auth, async (req, res) => {
+  res.json(await db.query(`SELECT * FROM budgets WHERE "userId"=$1 AND "deletedAt" IS NULL`, [req.user.id]));
 });
 
-router.post('/', auth, (req, res) => {
+router.post('/', auth, async (req, res) => {
   const { id, categoryId, amount, period } = req.body;
-  const existing = db.prepare('SELECT id FROM budgets WHERE userId=? AND categoryId=? AND deletedAt IS NULL')
-    .get(req.user.id, categoryId);
+  const existing = await db.queryOne(
+    `SELECT id FROM budgets WHERE "userId"=$1 AND "categoryId"=$2 AND "deletedAt" IS NULL`,
+    [req.user.id, categoryId]
+  );
   if (existing) {
-    db.prepare('UPDATE budgets SET amount=? WHERE id=? AND userId=?')
-      .run(amount, existing.id, req.user.id);
+    await db.execute(`UPDATE budgets SET amount=$1 WHERE id=$2 AND "userId"=$3`, [amount, existing.id, req.user.id]);
   } else {
-    db.prepare('INSERT INTO budgets (id, userId, categoryId, amount, period) VALUES (?, ?, ?, ?, ?)')
-      .run(id, req.user.id, categoryId, amount, period ?? 'monthly');
+    await db.execute(
+      `INSERT INTO budgets (id,"userId","categoryId",amount,period) VALUES ($1,$2,$3,$4,$5)`,
+      [id, req.user.id, categoryId, amount, period ?? 'monthly']
+    );
   }
   res.json({ ok: true });
 });
 
-router.delete('/:id', auth, (req, res) => {
-  db.prepare("UPDATE budgets SET deletedAt = datetime('now') WHERE id=? AND userId=?").run(req.params.id, req.user.id);
+router.delete('/:id', auth, async (req, res) => {
+  await db.execute(`UPDATE budgets SET "deletedAt" = NOW()::text WHERE id=$1 AND "userId"=$2`, [req.params.id, req.user.id]);
   res.json({ ok: true });
 });
 

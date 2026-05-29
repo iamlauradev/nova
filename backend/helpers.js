@@ -8,14 +8,16 @@ function hashRefreshToken(token) {
   return crypto.createHash('sha256').update(token).digest('hex');
 }
 
-function issueTokens(userId, username) {
+async function issueTokens(userId, username) {
   const jti = crypto.randomBytes(16).toString('hex');
   const accessToken  = jwt.sign({ id: userId, username, jti }, JWT_SECRET, { expiresIn: ACCESS_TOKEN_EXPIRY });
   const refreshToken = jwt.sign({ id: userId, username, type: 'refresh', jti }, JWT_SECRET, { expiresIn: REFRESH_TOKEN_EXPIRY });
   const tokenHash    = hashRefreshToken(refreshToken);
   const expiresAt    = new Date(Date.now() + REFRESH_TOKEN_MS).toISOString();
-  db.prepare('INSERT INTO refreshTokens (userId, tokenHash, expiresAt) VALUES (?, ?, ?)')
-    .run(userId, tokenHash, expiresAt);
+  await db.execute(
+    `INSERT INTO refresh_tokens ("userId", "tokenHash", "expiresAt") VALUES ($1, $2, $3)`,
+    [userId, tokenHash, expiresAt]
+  );
   return { accessToken, refreshToken };
 }
 

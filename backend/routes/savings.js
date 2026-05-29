@@ -4,36 +4,41 @@ const { auth } = require('../middleware/auth');
 
 const router = express.Router();
 
-router.get('/', auth, (req, res) => {
-  const rows = db.prepare('SELECT * FROM savingsTransfers WHERE userId=?').all(req.user.id);
+router.get('/', auth, async (req, res) => {
+  const rows = await db.query(`SELECT * FROM savings_transfers WHERE "userId"=$1`, [req.user.id]);
   res.json(rows.map(r => ({ ...r, active: r.active === 1 })));
 });
 
-router.post('/', auth, (req, res) => {
+router.post('/', auth, async (req, res) => {
   const { id, name, fromAccountId, toAccountId, amount, dayOfMonth, active } = req.body;
-  db.prepare(`
-    INSERT INTO savingsTransfers (id, userId, name, fromAccountId, toAccountId, amount, dayOfMonth, active, lastApplied)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, '')
-  `).run(id, req.user.id, name, fromAccountId, toAccountId, amount, dayOfMonth ?? 1, active !== false ? 1 : 0);
+  await db.execute(
+    `INSERT INTO savings_transfers (id,"userId",name,"fromAccountId","toAccountId",amount,"dayOfMonth",active,"lastApplied")
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'')`,
+    [id, req.user.id, name, fromAccountId, toAccountId, amount, dayOfMonth ?? 1, active !== false ? 1 : 0]
+  );
   res.json({ ok: true });
 });
 
-router.put('/:id', auth, (req, res) => {
+router.put('/:id', auth, async (req, res) => {
   const { name, fromAccountId, toAccountId, amount, dayOfMonth, active } = req.body;
-  db.prepare(`UPDATE savingsTransfers SET name=?, fromAccountId=?, toAccountId=?, amount=?, dayOfMonth=?, active=?
-    WHERE id=? AND userId=?`)
-    .run(name, fromAccountId, toAccountId, amount, dayOfMonth, active ? 1 : 0, req.params.id, req.user.id);
+  await db.execute(
+    `UPDATE savings_transfers SET name=$1,"fromAccountId"=$2,"toAccountId"=$3,amount=$4,"dayOfMonth"=$5,active=$6
+     WHERE id=$7 AND "userId"=$8`,
+    [name, fromAccountId, toAccountId, amount, dayOfMonth, active ? 1 : 0, req.params.id, req.user.id]
+  );
   res.json({ ok: true });
 });
 
-router.delete('/:id', auth, (req, res) => {
-  db.prepare('DELETE FROM savingsTransfers WHERE id=? AND userId=?').run(req.params.id, req.user.id);
+router.delete('/:id', auth, async (req, res) => {
+  await db.execute(`DELETE FROM savings_transfers WHERE id=$1 AND "userId"=$2`, [req.params.id, req.user.id]);
   res.json({ ok: true });
 });
 
-router.post('/:id/apply', auth, (req, res) => {
-  const transfer = db.prepare('SELECT * FROM savingsTransfers WHERE id=? AND userId=?')
-    .get(req.params.id, req.user.id);
+router.post('/:id/apply', auth, async (req, res) => {
+  const transfer = await db.queryOne(
+    `SELECT * FROM savings_transfers WHERE id=$1 AND "userId"=$2`,
+    [req.params.id, req.user.id]
+  );
   if (!transfer) return res.status(404).json({ error: 'Transferencia no encontrada' });
   if (!transfer.active) return res.status(400).json({ error: 'Transferencia inactiva' });
 
@@ -45,20 +50,24 @@ router.post('/:id/apply', auth, (req, res) => {
   const txIdOut = `stx_out_${Date.now()}`;
   const txIdIn  = `stx_in_${Date.now() + 1}`;
 
-  db.transaction(() => {
-    db.prepare('UPDATE accounts SET balance = ROUND(balance - ?, 2) WHERE id=? AND userId=?')
-      .run(transfer.amount, transfer.fromAccountId, req.user.id);
-    db.prepare(`INSERT INTO transactions (id, userId, accountId, type, amount, description, category, date, notes, transferGroup)
-      VALUES (?, ?, ?, 'expense', ?, ?, 'ahorro', ?, '', '')`)
-      .run(txIdOut, req.user.id, transfer.fromAccountId, transfer.amount, `Ahorro: ${transfer.name}`, txDate);
-    db.prepare('UPDATE accounts SET balance = ROUND(balance + ?, 2) WHERE id=? AND userId=?')
-      .run(transfer.amount, transfer.toAccountId, req.user.id);
-    db.prepare(`INSERT INTO transactions (id, userId, accountId, type, amount, description, category, date, notes, transferGroup)
-      VALUES (?, ?, ?, 'income', ?, ?, 'ahorro', ?, '', '')`)
-      .run(txIdIn, req.user.id, transfer.toAccountId, transfer.amount, `Ahorro: ${transfer.name}`, txDate);
-    db.prepare('UPDATE savingsTransfers SET lastApplied=? WHERE id=? AND userId=?')
-      .run(yearMonth, req.params.id, req.user.id);
-  })();
+  await db.withTx(async (client) => {
+    await client.query(`UPDATE accounts SET balance = ROUND(balance - $1, 2) WHERE id=$2 AND "userId"=$3`,
+      [transfer.amount, transfer.fromAccountId, req.user.id]);
+    await client.query(
+      `INSERT INTO transactions (id,"userId","accountId",type,amount,description,category,date,notes,"transferGroup")
+       VALUES ($1,$2,$3,'expense',$4,$5,'ahorro',$6,'','')`,
+      [txIdOut, req.user.id, transfer.fromAccountId, transfer.amount, `Ahorro: ${transfer.name}`, txDate]
+    );
+    await client.query(`UPDATE accounts SET balance = ROUND(balance + $1, 2) WHERE id=$2 AND "userId"=$3`,
+      [transfer.amount, transfer.toAccountId, req.user.id]);
+    await client.query(
+      `INSERT INTO transactions (id,"userId","accountId",type,amount,description,category,date,notes,"transferGroup")
+       VALUES ($1,$2,$3,'income',$4,$5,'ahorro',$6,'','')`,
+      [txIdIn, req.user.id, transfer.toAccountId, transfer.amount, `Ahorro: ${transfer.name}`, txDate]
+    );
+    await client.query(`UPDATE savings_transfers SET "lastApplied"=$1 WHERE id=$2 AND "userId"=$3`,
+      [yearMonth, req.params.id, req.user.id]);
+  });
 
   res.json({ ok: true, yearMonth });
 });

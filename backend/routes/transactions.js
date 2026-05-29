@@ -8,11 +8,14 @@ const { notifyUser } = require('../sse');
 const router = express.Router();
 const VALID_TX_TYPES = ['income', 'expense', 'transfer-in', 'transfer-out', 'transfer'];
 
-router.get('/', auth, (req, res) => {
-  res.json(db.prepare('SELECT * FROM transactions WHERE userId=? AND deletedAt IS NULL ORDER BY date DESC').all(req.user.id));
+router.get('/', auth, async (req, res) => {
+  res.json(await db.query(
+    `SELECT * FROM transactions WHERE "userId"=$1 AND "deletedAt" IS NULL ORDER BY date DESC`,
+    [req.user.id]
+  ));
 });
 
-router.post('/', auth, (req, res) => {
+router.post('/', auth, async (req, res) => {
   const { id, accountId, type, amount, description, category, date, notes, transferGroup, tags, splits } = req.body;
   const err = validate({
     id:        { required: true, type: 'string' },
@@ -24,23 +27,28 @@ router.post('/', auth, (req, res) => {
 
   const delta = type === 'income' ? amount : (type === 'expense' ? -amount : 0);
   if (delta !== 0) {
-    db.prepare('UPDATE accounts SET balance = ROUND(balance + ?, 2) WHERE id=? AND userId=?')
-      .run(delta, accountId, req.user.id);
+    await db.execute(
+      `UPDATE accounts SET balance = ROUND(balance + $1, 2) WHERE id=$2 AND "userId"=$3`,
+      [delta, accountId, req.user.id]
+    );
   }
   const splitsJson = splits ? JSON.stringify(splits) : null;
-  db.prepare(`
-    INSERT INTO transactions (id, userId, accountId, type, amount, description, category, date, notes, transferGroup, tags, splits)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(id, req.user.id, accountId, type, amount, description ?? '', category ?? '', date,
-         notes ?? '', transferGroup ?? '', tags ?? '', splitsJson);
-  audit(req.user.id, 'transaction', id, 'create', { type, amount, category });
+  await db.execute(
+    `INSERT INTO transactions (id,"userId","accountId",type,amount,description,category,date,notes,"transferGroup",tags,splits)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`,
+    [id, req.user.id, accountId, type, amount, description ?? '', category ?? '', date,
+     notes ?? '', transferGroup ?? '', tags ?? '', splitsJson]
+  );
+  await audit(req.user.id, 'transaction', id, 'create', { type, amount, category });
   notifyUser(req.user.id);
   res.json({ ok: true });
 });
 
-router.put('/:id', auth, (req, res) => {
-  const old = db.prepare('SELECT * FROM transactions WHERE id=? AND userId=?')
-    .get(req.params.id, req.user.id);
+router.put('/:id', auth, async (req, res) => {
+  const old = await db.queryOne(
+    `SELECT * FROM transactions WHERE id=$1 AND "userId"=$2`,
+    [req.params.id, req.user.id]
+  );
   if (!old) return res.status(404).json({ error: 'Transacción no encontrada' });
 
   const validationErr = validate({
@@ -53,80 +61,91 @@ router.put('/:id', auth, (req, res) => {
   const { accountId, type, amount, description, category, date, notes, tags, splits } = req.body;
 
   if (old.type === 'income') {
-    db.prepare('UPDATE accounts SET balance = ROUND(balance - ?, 2) WHERE id=? AND userId=?')
-      .run(old.amount, old.accountId, req.user.id);
+    await db.execute(`UPDATE accounts SET balance = ROUND(balance - $1, 2) WHERE id=$2 AND "userId"=$3`,
+      [old.amount, old.accountId, req.user.id]);
   } else if (old.type === 'expense') {
-    db.prepare('UPDATE accounts SET balance = ROUND(balance + ?, 2) WHERE id=? AND userId=?')
-      .run(old.amount, old.accountId, req.user.id);
+    await db.execute(`UPDATE accounts SET balance = ROUND(balance + $1, 2) WHERE id=$2 AND "userId"=$3`,
+      [old.amount, old.accountId, req.user.id]);
   }
 
   if (type === 'income') {
-    db.prepare('UPDATE accounts SET balance = ROUND(balance + ?, 2) WHERE id=? AND userId=?')
-      .run(amount, accountId, req.user.id);
+    await db.execute(`UPDATE accounts SET balance = ROUND(balance + $1, 2) WHERE id=$2 AND "userId"=$3`,
+      [amount, accountId, req.user.id]);
   } else if (type === 'expense') {
-    db.prepare('UPDATE accounts SET balance = ROUND(balance - ?, 2) WHERE id=? AND userId=?')
-      .run(amount, accountId, req.user.id);
+    await db.execute(`UPDATE accounts SET balance = ROUND(balance - $1, 2) WHERE id=$2 AND "userId"=$3`,
+      [amount, accountId, req.user.id]);
   }
 
   const splitsJson = splits !== undefined ? (splits ? JSON.stringify(splits) : null) : old.splits;
-  db.prepare(`
-    UPDATE transactions SET accountId=?, type=?, amount=?, description=?, category=?, date=?, notes=?, tags=?, splits=?
-    WHERE id=? AND userId=?
-  `).run(accountId, type, amount, description ?? '', category ?? '', date, notes ?? '', tags ?? '', splitsJson,
-         req.params.id, req.user.id);
-  audit(req.user.id, 'transaction', req.params.id, 'update', { type, amount, category });
+  await db.execute(
+    `UPDATE transactions SET "accountId"=$1,type=$2,amount=$3,description=$4,category=$5,date=$6,notes=$7,tags=$8,splits=$9
+     WHERE id=$10 AND "userId"=$11`,
+    [accountId, type, amount, description ?? '', category ?? '', date, notes ?? '', tags ?? '', splitsJson,
+     req.params.id, req.user.id]
+  );
+  await audit(req.user.id, 'transaction', req.params.id, 'update', { type, amount, category });
   res.json({ ok: true });
 });
 
-router.delete('/:id', auth, (req, res) => {
-  const tx = db.prepare('SELECT * FROM transactions WHERE id=? AND userId=?')
-    .get(req.params.id, req.user.id);
+router.delete('/:id', auth, async (req, res) => {
+  const tx = await db.queryOne(
+    `SELECT * FROM transactions WHERE id=$1 AND "userId"=$2`,
+    [req.params.id, req.user.id]
+  );
   if (tx) {
     if (tx.type === 'income' || tx.type === 'transfer-in') {
-      db.prepare('UPDATE accounts SET balance = ROUND(balance - ?, 2) WHERE id=? AND userId=?')
-        .run(tx.amount, tx.accountId, req.user.id);
+      await db.execute(`UPDATE accounts SET balance = ROUND(balance - $1, 2) WHERE id=$2 AND "userId"=$3`,
+        [tx.amount, tx.accountId, req.user.id]);
     } else if (tx.type === 'expense' || tx.type === 'transfer-out') {
-      db.prepare('UPDATE accounts SET balance = ROUND(balance + ?, 2) WHERE id=? AND userId=?')
-        .run(tx.amount, tx.accountId, req.user.id);
+      await db.execute(`UPDATE accounts SET balance = ROUND(balance + $1, 2) WHERE id=$2 AND "userId"=$3`,
+        [tx.amount, tx.accountId, req.user.id]);
     }
     if (tx.transferGroup) {
-      const paired = db.prepare('SELECT * FROM transactions WHERE transferGroup=? AND id!=? AND userId=? AND deletedAt IS NULL')
-        .get(tx.transferGroup, req.params.id, req.user.id);
+      const paired = await db.queryOne(
+        `SELECT * FROM transactions WHERE "transferGroup"=$1 AND id!=$2 AND "userId"=$3 AND "deletedAt" IS NULL`,
+        [tx.transferGroup, req.params.id, req.user.id]
+      );
       if (paired) {
         if (paired.type === 'income' || paired.type === 'transfer-in') {
-          db.prepare('UPDATE accounts SET balance = ROUND(balance - ?, 2) WHERE id=? AND userId=?')
-            .run(paired.amount, paired.accountId, req.user.id);
+          await db.execute(`UPDATE accounts SET balance = ROUND(balance - $1, 2) WHERE id=$2 AND "userId"=$3`,
+            [paired.amount, paired.accountId, req.user.id]);
         } else if (paired.type === 'expense' || paired.type === 'transfer-out') {
-          db.prepare('UPDATE accounts SET balance = ROUND(balance + ?, 2) WHERE id=? AND userId=?')
-            .run(paired.amount, paired.accountId, req.user.id);
+          await db.execute(`UPDATE accounts SET balance = ROUND(balance + $1, 2) WHERE id=$2 AND "userId"=$3`,
+            [paired.amount, paired.accountId, req.user.id]);
         }
-        db.prepare("UPDATE transactions SET deletedAt = datetime('now') WHERE id=? AND userId=?").run(paired.id, req.user.id);
+        await db.execute(`UPDATE transactions SET "deletedAt" = NOW()::text WHERE id=$1 AND "userId"=$2`,
+          [paired.id, req.user.id]);
       }
     }
-    db.prepare("UPDATE transactions SET deletedAt = datetime('now') WHERE id=? AND userId=?").run(req.params.id, req.user.id);
-    audit(req.user.id, 'transaction', req.params.id, 'delete', null);
+    await db.execute(`UPDATE transactions SET "deletedAt" = NOW()::text WHERE id=$1 AND "userId"=$2`,
+      [req.params.id, req.user.id]);
+    await audit(req.user.id, 'transaction', req.params.id, 'delete', null);
   }
   res.json({ ok: true });
 });
 
-router.post('/transfer', auth, (req, res) => {
+router.post('/transfer', auth, async (req, res) => {
   const { fromAccountId, toAccountId, amount, description, date } = req.body;
   const group = `trf_${Date.now()}`;
   const idOut = `tx_out_${Date.now()}`;
   const idIn  = `tx_in_${Date.now() + 1}`;
   const desc = description || 'Transferencia';
 
-  db.prepare('UPDATE accounts SET balance = ROUND(balance - ?, 2) WHERE id=? AND userId=?')
-    .run(amount, fromAccountId, req.user.id);
-  db.prepare(`INSERT INTO transactions (id, userId, accountId, type, amount, description, category, date, notes, transferGroup)
-    VALUES (?, ?, ?, 'transfer-out', ?, ?, 'transferencia', ?, '', ?)`)
-    .run(idOut, req.user.id, fromAccountId, amount, desc, date, group);
+  await db.execute(`UPDATE accounts SET balance = ROUND(balance - $1, 2) WHERE id=$2 AND "userId"=$3`,
+    [amount, fromAccountId, req.user.id]);
+  await db.execute(
+    `INSERT INTO transactions (id,"userId","accountId",type,amount,description,category,date,notes,"transferGroup")
+     VALUES ($1,$2,$3,'transfer-out',$4,$5,'transferencia',$6,'','')`,
+    [idOut, req.user.id, fromAccountId, amount, desc, date]
+  );
 
-  db.prepare('UPDATE accounts SET balance = ROUND(balance + ?, 2) WHERE id=? AND userId=?')
-    .run(amount, toAccountId, req.user.id);
-  db.prepare(`INSERT INTO transactions (id, userId, accountId, type, amount, description, category, date, notes, transferGroup)
-    VALUES (?, ?, ?, 'transfer-in', ?, ?, 'transferencia', ?, '', ?)`)
-    .run(idIn, req.user.id, toAccountId, amount, desc, date, group);
+  await db.execute(`UPDATE accounts SET balance = ROUND(balance + $1, 2) WHERE id=$2 AND "userId"=$3`,
+    [amount, toAccountId, req.user.id]);
+  await db.execute(
+    `INSERT INTO transactions (id,"userId","accountId",type,amount,description,category,date,notes,"transferGroup")
+     VALUES ($1,$2,$3,'transfer-in',$4,$5,'transferencia',$6,'','')`,
+    [idIn, req.user.id, toAccountId, amount, desc, date]
+  );
 
   res.json({ ok: true, group });
 });
