@@ -1,5 +1,8 @@
-const { Pool } = require('pg');
+const { Pool, types } = require('pg');
 const logger = require('./logger');
+
+// pg devuelve NUMERIC como string por defecto; lo convertimos a float
+types.setTypeParser(1700, val => parseFloat(val));
 
 const pool = new Pool({
   host:     process.env.PG_HOST     || 'shared_postgres',
