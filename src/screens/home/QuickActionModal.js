@@ -14,31 +14,33 @@ import CategoryImage from '../../components/CategoryImage';
 export function QuickActionModal({ visible, type, cat, accounts, defaultAccountId, onClose, onConfirm }) {
   const inputRef  = useRef(null);
   const amountRef = useRef('');
-  const [accountId, setAccountId]       = useState('');
-  const [accDropdownOpen, setAccDropdownOpen] = useState(false);
+  const [accountId, setAccountId] = useState('');
 
   useEffect(() => {
     if (visible) {
       amountRef.current = '';
       inputRef.current?.clear();
       setAccountId(defaultAccountId || '');
-      setAccDropdownOpen(false);
     }
   }, [visible, defaultAccountId]);
 
   if (!cat) return null;
-  const isExpense     = type === 'expense';
-  const color         = isExpense ? COLORS.expense : COLORS.income;
+  const isExpense          = type === 'expense';
   const selectableAccounts = accounts.filter(a => a.type !== 'savings');
-  const selectedAcc   = selectableAccounts.find(a => a.id === accountId);
-  const gradient  = isExpense ? [COLORS.expense, '#c0392b'] : [COLORS.income, '#15803d'];
-  const subtitle  = isExpense ? 'Registro rápido de gasto'  : 'Registro rápido de ingreso';
-  const btnText   = isExpense ? 'AÑADIR GASTO'              : 'AÑADIR INGRESO';
+  const gradient           = isExpense ? [COLORS.expense, '#c0392b'] : [COLORS.income, '#15803d'];
+  const subtitle           = isExpense ? 'Registro rápido de gasto'  : 'Registro rápido de ingreso';
+  const btnText            = isExpense ? 'AÑADIR GASTO'              : 'AÑADIR INGRESO';
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.overlay}>
-        <View style={styles.sheet}>
+        <ScrollView
+          style={styles.sheet}
+          contentContainerStyle={styles.sheetContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+        >
           <View style={styles.handle} />
           <View style={styles.header}>
             <CategoryImage image={cat.image} icon={cat.icon} size={36} />
@@ -60,31 +62,21 @@ export function QuickActionModal({ visible, type, cat, accounts, defaultAccountI
           />
 
           <Text style={styles.fieldLabel}>CUENTA</Text>
-          <TouchableOpacity
-            style={[styles.accSelector, accDropdownOpen && styles.accSelectorOpen, selectedAcc && { borderColor: selectedAcc.color || COLORS.primary }]}
-            onPress={() => setAccDropdownOpen(o => !o)}
-          >
-            <Text style={[styles.accSelectorText, selectedAcc && { color: selectedAcc.color || COLORS.primary }]}>
-              {selectedAcc ? selectedAcc.name : 'Selecciona cuenta'}
-            </Text>
-            <Ionicons name={accDropdownOpen ? 'chevron-up' : 'chevron-down'} size={13} color={selectedAcc ? selectedAcc.color || COLORS.primary : COLORS.textMuted} />
-          </TouchableOpacity>
-          {accDropdownOpen && (
-            <View style={styles.accDropdown}>
-              <ScrollView bounces={false} showsVerticalScrollIndicator={false} style={styles.accDropdownScroll} keyboardShouldPersistTaps="handled">
-                {selectableAccounts.map((acc, idx) => (
-                  <TouchableOpacity
-                    key={acc.id}
-                    style={[styles.accDropdownItem, idx > 0 && styles.accDropdownItemBorder, accountId === acc.id && styles.accDropdownItemActive]}
-                    onPress={() => { setAccountId(acc.id); setAccDropdownOpen(false); }}
-                  >
-                    <Text style={[styles.accDropdownItemText, accountId === acc.id && { color: acc.color || COLORS.primary }]}>{acc.name}</Text>
-                    {accountId === acc.id && <Ionicons name="checkmark" size={13} color={acc.color || COLORS.primary} />}
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          )}
+          <View style={styles.accList}>
+            {selectableAccounts.map((acc, idx) => {
+              const selected = accountId === acc.id;
+              return (
+                <TouchableOpacity
+                  key={acc.id}
+                  style={[styles.accItem, idx > 0 && styles.accItemBorder, selected && { borderColor: acc.color || COLORS.primary, backgroundColor: COLORS.primaryGlow }]}
+                  onPress={() => setAccountId(acc.id)}
+                >
+                  <Text style={[styles.accItemText, selected && { color: acc.color || COLORS.primary }]}>{acc.name}</Text>
+                  {selected && <Ionicons name="checkmark" size={13} color={acc.color || COLORS.primary} />}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
 
           <View style={styles.actions}>
             <TouchableOpacity style={[styles.btn, styles.cancelBtn]} onPress={onClose}>
@@ -96,7 +88,7 @@ export function QuickActionModal({ visible, type, cat, accounts, defaultAccountI
               <Text style={styles.confirmText}>{btnText}</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </Modal>
   );
@@ -160,9 +152,10 @@ const styles = StyleSheet.create({
   overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: COLORS.overlay },
   sheet: {
     backgroundColor: COLORS.bgModal, borderTopLeftRadius: 16, borderTopRightRadius: 16,
-    padding: 24, paddingBottom: 36,
     borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1, borderColor: COLORS.borderSubtle,
+    maxHeight: '90%',
   },
+  sheetContent: { padding: 24, paddingBottom: 36 },
   handle: { width: 36, height: 3, backgroundColor: COLORS.borderMid, borderRadius: 2, alignSelf: 'center', marginBottom: 22 },
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
   title: { color: COLORS.text, fontSize: 16, fontWeight: '800', letterSpacing: 0.5 },
@@ -174,30 +167,17 @@ const styles = StyleSheet.create({
     color: COLORS.text, fontSize: 18, fontWeight: '700',
     backgroundColor: COLORS.surface, marginBottom: 16,
   },
-  accSelector: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 12, paddingVertical: 10,
-    borderWidth: 1, borderColor: COLORS.borderSubtle,
-    backgroundColor: COLORS.bgCard, borderRadius: 6, marginBottom: 6,
-  },
-  accSelectorOpen: {
-    borderBottomLeftRadius: 0, borderBottomRightRadius: 0, marginBottom: 0,
-  },
-  accSelectorText: { color: COLORS.textMuted, fontSize: 13, fontWeight: '600' },
-  accDropdown: {
-    borderWidth: 1, borderTopWidth: 0, borderColor: COLORS.borderSubtle,
-    borderBottomLeftRadius: 6, borderBottomRightRadius: 6,
+  accList: {
+    borderWidth: 1, borderColor: COLORS.borderSubtle, borderRadius: 6,
     backgroundColor: COLORS.bgCard, marginBottom: 16, overflow: 'hidden',
-    maxHeight: 180,
   },
-  accDropdownScroll: { flexGrow: 0 },
-  accDropdownItem: {
+  accItem: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 12, paddingVertical: 11,
+    borderWidth: 1, borderColor: 'transparent',
   },
-  accDropdownItemBorder: { borderTopWidth: 1, borderTopColor: COLORS.borderSubtle },
-  accDropdownItemActive: { backgroundColor: COLORS.primaryGlow },
-  accDropdownItemText: { color: COLORS.textMuted, fontSize: 13, fontWeight: '600' },
+  accItemBorder: { borderTopWidth: 1, borderTopColor: COLORS.borderSubtle },
+  accItemText: { color: COLORS.textMuted, fontSize: 13, fontWeight: '600' },
   actions: { flexDirection: 'row', gap: 12, marginTop: 8 },
   btn: { flex: 1, paddingVertical: 14, borderRadius: 4, alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexDirection: 'row', gap: 6 },
   cancelBtn: { borderWidth: 1, borderColor: COLORS.borderSubtle, backgroundColor: COLORS.bgCard },
