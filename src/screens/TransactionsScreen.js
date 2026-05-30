@@ -796,19 +796,17 @@ export default function TransactionsScreen() {
             {accounts.length === 0 ? (
               <Text style={styles.noAccountsText}>Primero añade una cuenta en la pestaña "Cuentas"</Text>
             ) : (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                  {accounts.map(a => (
-                    <TouchableOpacity
-                      key={a.id}
-                      style={[styles.chipBtn, form.accountId === a.id && { backgroundColor: `${a.color}33`, borderColor: a.color }]}
-                      onPress={() => setForm(p => ({ ...p, accountId: a.id }))}
-                    >
-                      <Text style={styles.chipText}>{a.name}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </ScrollView>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+                {accounts.map(a => (
+                  <TouchableOpacity
+                    key={a.id}
+                    style={[styles.chipBtn, form.accountId === a.id && { backgroundColor: `${a.color}33`, borderColor: a.color }]}
+                    onPress={() => setForm(p => ({ ...p, accountId: a.id }))}
+                  >
+                    <Text style={styles.chipText}>{a.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             )}
             {form.accountId ? (() => {
               const selAcc = accounts.find(a => a.id === form.accountId);
@@ -1001,34 +999,30 @@ export default function TransactionsScreen() {
             />
 
             <Text style={styles.fieldLabel}>DESDE (origen)</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16 }}>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                {accounts.map(a => (
-                  <TouchableOpacity
-                    key={a.id}
-                    style={[styles.chipBtn, transferForm.fromAccountId === a.id && { backgroundColor: `${a.color}33`, borderColor: a.color }]}
-                    onPress={() => setTransferForm(p => ({ ...p, fromAccountId: a.id }))}
-                  >
-                    <Text style={styles.chipText}>{a.name}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </ScrollView>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
+              {accounts.map(a => (
+                <TouchableOpacity
+                  key={a.id}
+                  style={[styles.chipBtn, transferForm.fromAccountId === a.id && { backgroundColor: `${a.color}33`, borderColor: a.color }]}
+                  onPress={() => setTransferForm(p => ({ ...p, fromAccountId: a.id }))}
+                >
+                  <Text style={styles.chipText}>{a.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
 
             <Text style={styles.fieldLabel}>HACIA (destino)</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 20 }}>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                {accounts.map(a => (
-                  <TouchableOpacity
-                    key={a.id}
-                    style={[styles.chipBtn, transferForm.toAccountId === a.id && { backgroundColor: `${a.color}33`, borderColor: a.color }]}
-                    onPress={() => setTransferForm(p => ({ ...p, toAccountId: a.id }))}
-                  >
-                    <Text style={styles.chipText}>{a.name}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </ScrollView>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
+              {accounts.map(a => (
+                <TouchableOpacity
+                  key={a.id}
+                  style={[styles.chipBtn, transferForm.toAccountId === a.id && { backgroundColor: `${a.color}33`, borderColor: a.color }]}
+                  onPress={() => setTransferForm(p => ({ ...p, toAccountId: a.id }))}
+                >
+                  <Text style={styles.chipText}>{a.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
 
           <View style={[styles.modalActions, { marginBottom: 8 }]}>
             <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => transferSheetRef.current?.close()}>
