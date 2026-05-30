@@ -71,16 +71,18 @@ export function QuickActionModal({ visible, type, cat, accounts, defaultAccountI
           </TouchableOpacity>
           {accDropdownOpen && (
             <View style={styles.accDropdown}>
-              {selectableAccounts.map((acc, idx) => (
-                <TouchableOpacity
-                  key={acc.id}
-                  style={[styles.accDropdownItem, idx > 0 && styles.accDropdownItemBorder, accountId === acc.id && styles.accDropdownItemActive]}
-                  onPress={() => { setAccountId(acc.id); setAccDropdownOpen(false); }}
-                >
-                  <Text style={[styles.accDropdownItemText, accountId === acc.id && { color: acc.color || COLORS.primary }]}>{acc.name}</Text>
-                  {accountId === acc.id && <Ionicons name="checkmark" size={13} color={acc.color || COLORS.primary} />}
-                </TouchableOpacity>
-              ))}
+              <ScrollView bounces={false} showsVerticalScrollIndicator={false} style={styles.accDropdownScroll} keyboardShouldPersistTaps="handled">
+                {selectableAccounts.map((acc, idx) => (
+                  <TouchableOpacity
+                    key={acc.id}
+                    style={[styles.accDropdownItem, idx > 0 && styles.accDropdownItemBorder, accountId === acc.id && styles.accDropdownItemActive]}
+                    onPress={() => { setAccountId(acc.id); setAccDropdownOpen(false); }}
+                  >
+                    <Text style={[styles.accDropdownItemText, accountId === acc.id && { color: acc.color || COLORS.primary }]}>{acc.name}</Text>
+                    {accountId === acc.id && <Ionicons name="checkmark" size={13} color={acc.color || COLORS.primary} />}
+                  </TouchableOpacity>
+                ))}
+              </ScrollView>
             </View>
           )}
 
@@ -186,7 +188,9 @@ const styles = StyleSheet.create({
     borderWidth: 1, borderTopWidth: 0, borderColor: COLORS.borderSubtle,
     borderBottomLeftRadius: 6, borderBottomRightRadius: 6,
     backgroundColor: COLORS.bgCard, marginBottom: 16, overflow: 'hidden',
+    maxHeight: 180,
   },
+  accDropdownScroll: { flexGrow: 0 },
   accDropdownItem: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 12, paddingVertical: 11,
