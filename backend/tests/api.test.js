@@ -1,5 +1,4 @@
 process.env.JWT_SECRET = 'test-secret-key-for-jest';
-process.env.TEST_DB_PATH = ':memory:';
 process.env.NODE_ENV = 'test';
 
 const request = require('supertest');
@@ -19,8 +18,8 @@ beforeAll(async () => {
   expect(token).toBeDefined();
 });
 
-afterAll(() => {
-  db.close();
+afterAll(async () => {
+  await db.pool.end();
 });
 
 // ─── Auth endpoints ───────────────────────────────────────────────────────────
