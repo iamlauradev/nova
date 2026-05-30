@@ -37,7 +37,6 @@ app.use('/api/budgets',           require('./routes/budgets'));
 app.use('/api/goals',             require('./routes/goals'));
 app.use('/api/debts',             require('./routes/debts'));
 app.use('/api/loans',             require('./routes/loans'));
-app.use('/api/envelopes',         require('./routes/envelopes'));
 app.use('/api/events',            require('./routes/events'));
 
 app.get('/health', (req, res) => {

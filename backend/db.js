@@ -206,17 +206,6 @@ async function initSchema() {
       "createdAt" TIMESTAMPTZ DEFAULT NOW()
     )
   `);
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS envelopes (
-      id           TEXT PRIMARY KEY,
-      "userId"     INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      year         INTEGER NOT NULL,
-      month        INTEGER NOT NULL,
-      "categoryId" TEXT NOT NULL,
-      assigned     NUMERIC(15,4) DEFAULT 0,
-      UNIQUE("userId", year, month, "categoryId")
-    )
-  `);
 }
 
 // Limpia refresh tokens expirados

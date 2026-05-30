@@ -36,7 +36,6 @@ import HomeScreen from './src/screens/HomeScreen';
 import AccountsScreen from './src/screens/AccountsScreen';
 import TransactionsScreen from './src/screens/TransactionsScreen';
 import StatsScreen from './src/screens/StatsScreen';
-import EnvelopesScreen from './src/screens/EnvelopesScreen';
 import RecurringScreen from './src/screens/RecurringScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import CategoriesScreen from './src/screens/CategoriesScreen';
@@ -185,14 +184,6 @@ function TabsNavigator({ user, logout }) {
           headerTitle: '⟨ ESTADÍSTICAS ⟩',
           tabBarLabel: 'Estadísticas',
           tabBarIcon: ({ color, focused }) => <TabIcon name="bar-chart" color={color} focused={focused} />,
-        }}
-      />
-      <Tab.Screen
-        name="Sobres"
-        component={EnvelopesScreen}
-        options={{
-          headerTitle: '⟨ SOBRES ⟩',
-          tabBarIcon: ({ color, focused }) => <TabIcon name="layers" color={color} focused={focused} />,
         }}
       />
       <Tab.Screen
