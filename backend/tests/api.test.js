@@ -13,6 +13,7 @@ let goalId;
 let debtId;
 
 beforeAll(async () => {
+  await db.initSchema();
   const res = await request(app).post('/auth/register').send(testUser);
   token = res.body.token;
   expect(token).toBeDefined();
