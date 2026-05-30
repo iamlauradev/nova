@@ -420,7 +420,7 @@ export default function HomeScreen() {
                         <Text style={styles.debtRemaining}>-{formatCurrency(total - paid)}</Text>
                       </View>
                       <View style={styles.debtBarBg}>
-                        <LinearGradient colors={['#f43f5e', '#be123c']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
+                        <LinearGradient colors={[COLORS.expense, '#c0392b']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
                           style={[styles.debtBarFill, { width: `${Math.round(pct * 100)}%` }]} />
                       </View>
                       <View style={styles.debtFooter}>
@@ -570,12 +570,12 @@ const styles = StyleSheet.create({
   debtDivider: { borderTopWidth: 1, borderTopColor: COLORS.borderSubtle, marginTop: 8 },
   debtHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
   debtName: { flex: 1, color: COLORS.text, fontSize: 13, fontWeight: '600' },
-  debtRemaining: { color: '#f43f5e', fontSize: 13, fontWeight: '800' },
+  debtRemaining: { color: COLORS.expense, fontSize: 13, fontWeight: '800' },
   debtBarBg: { height: 4, backgroundColor: COLORS.borderSubtle, borderRadius: 2, overflow: 'hidden', marginBottom: 4 },
   debtBarFill: { height: 4, borderRadius: 2 },
   debtFooter: { flexDirection: 'row', justifyContent: 'space-between' },
   debtPaid: { color: COLORS.textDim, fontSize: 10 },
-  debtPct: { color: '#fb7185', fontSize: 10, fontWeight: '700' },
+  debtPct: { color: COLORS.expense, fontSize: 10, fontWeight: '700' },
 
   monthGrid: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
   monthCell: { flex: 1, alignItems: 'center' },
