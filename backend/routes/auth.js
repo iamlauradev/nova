@@ -64,7 +64,7 @@ router.post('/refresh', refreshLimiter, async (req, res) => {
 
   const tokenHash = hashRefreshToken(refreshToken);
   const stored = await db.queryOne(
-    `SELECT * FROM refresh_tokens WHERE "tokenHash"=$1 AND "expiresAt" > NOW()::text`,
+    `SELECT * FROM refresh_tokens WHERE "tokenHash"=$1 AND "expiresAt"::timestamptz > NOW()`,
     [tokenHash]
   );
 

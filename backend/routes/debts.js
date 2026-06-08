@@ -67,18 +67,20 @@ router.post('/:id/pay', auth, async (req, res) => {
   const txDate = date || `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
   const desc = description || `Pago: ${debt.name}`;
 
-  await db.execute(`UPDATE accounts SET balance = ROUND(balance - $1, 2) WHERE id=$2 AND "userId"=$3`,
-    [amount, accountId, req.user.id]);
-  await db.execute(
-    `INSERT INTO transactions (id,"userId","accountId",type,amount,description,category,date,notes,"transferGroup")
-     VALUES ($1,$2,$3,'expense',$4,$5,'deuda',$6,$7,'')`,
-    [txId, req.user.id, accountId, amount, desc, txDate, `Pago deuda: ${debt.name}`]
-  );
-
   const newPaid = Math.min(Number(debt.paidAmount) + amount, Number(debt.totalAmount));
   const completed = newPaid >= Number(debt.totalAmount);
-  await db.execute(`UPDATE debts SET "paidAmount"=$1,active=$2 WHERE id=$3 AND "userId"=$4`,
-    [newPaid, completed ? 0 : 1, req.params.id, req.user.id]);
+
+  await db.withTx(async (client) => {
+    await client.query(`UPDATE accounts SET balance = ROUND(balance - $1, 2) WHERE id=$2 AND "userId"=$3`,
+      [amount, accountId, req.user.id]);
+    await client.query(
+      `INSERT INTO transactions (id,"userId","accountId",type,amount,description,category,date,notes,"transferGroup")
+       VALUES ($1,$2,$3,'expense',$4,$5,'deuda',$6,$7,'')`,
+      [txId, req.user.id, accountId, amount, desc, txDate, `Pago deuda: ${debt.name}`]
+    );
+    await client.query(`UPDATE debts SET "paidAmount"=$1,active=$2 WHERE id=$3 AND "userId"=$4`,
+      [newPaid, completed ? 0 : 1, req.params.id, req.user.id]);
+  });
 
   res.json({ ok: true, paidAmount: newPaid, completed });
 });

@@ -707,13 +707,13 @@ export default function TransactionsScreen() {
             icon: 'arrow-down-circle',
             label: 'Gasto',
             color: COLORS.expense,
-            onPress: () => { setEditTarget(null); setForm({ ...BLANK_FORM, type: 'expense' }); setCatGroupFilter(null); txSheetRef.current?.expand(); },
+            onPress: () => { setEditTarget(null); setForm({ ...BLANK_FORM, type: 'expense' }); setCatGroupFilter(null); setTxModalKey(k => k + 1); txSheetRef.current?.expand(); },
           },
           {
             icon: 'arrow-up-circle',
             label: 'Ingreso',
             color: COLORS.income,
-            onPress: () => { setEditTarget(null); setForm({ ...BLANK_FORM, type: 'income' }); setCatGroupFilter(null); txSheetRef.current?.expand(); },
+            onPress: () => { setEditTarget(null); setForm({ ...BLANK_FORM, type: 'income' }); setCatGroupFilter(null); setTxModalKey(k => k + 1); txSheetRef.current?.expand(); },
           },
           {
             icon: 'swap-horizontal',

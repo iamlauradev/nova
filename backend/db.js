@@ -211,7 +211,7 @@ async function initSchema() {
 // Limpia refresh tokens expirados
 async function cleanExpiredTokens() {
   const { rowCount } = await pool.query(
-    `DELETE FROM refresh_tokens WHERE "expiresAt" <= NOW()::text`
+    `DELETE FROM refresh_tokens WHERE "expiresAt"::timestamptz <= NOW()`
   );
   if (rowCount > 0) logger.info({ changes: rowCount }, 'Refresh tokens expirados eliminados');
 }

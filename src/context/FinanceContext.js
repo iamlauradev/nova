@@ -256,11 +256,8 @@ export function FinanceProvider({ children, isAuthenticated }) {
   }, []);
 
   const archiveAccount = useCallback(async (id) => {
-    let acc;
-    setAccounts(prev => {
-      acc = prev.find(a => a.id === id);
-      return prev.filter(a => a.id !== id);
-    });
+    const acc = accounts.find(a => a.id === id);
+    setAccounts(prev => prev.filter(a => a.id !== id));
     await api.archiveAccount(id);
     if (acc) setArchivedAccounts(prev => [...prev, { ...acc, archived: 1 }]);
     setRecurringItems(prev => prev.map(r => r.accountId === id ? { ...r, active: false } : r));
@@ -268,7 +265,7 @@ export function FinanceProvider({ children, isAuthenticated }) {
       (t.fromAccountId === id || t.toAccountId === id) ? { ...t, active: false } : t
     ));
     setFinancedItems(prev => prev.map(f => f.accountId === id ? { ...f, active: false } : f));
-  }, []);
+  }, [accounts]);
 
   // --- Transacciones ---
   const addTransaction = useCallback(async (data) => {
@@ -291,15 +288,12 @@ export function FinanceProvider({ children, isAuthenticated }) {
   }, []);
 
   const editTransaction = useCallback(async (id, data) => {
-    let old;
-    setTransactions(prev => {
-      old = prev.find(t => t.id === id);
-      return prev.map(t => t.id === id ? { ...t, ...data } : t);
-    });
+    const old = transactions.find(t => t.id === id);
+    setTransactions(prev => prev.map(t => t.id === id ? { ...t, ...data } : t));
     try {
       await api.editTransaction(id, data);
     } catch (e) {
-      setTransactions(prev => prev.map(t => t.id === id ? old : t));
+      setTransactions(prev => prev.map(t => t.id === id ? (old ?? t) : t));
       throw e;
     }
     if (old) {
@@ -316,18 +310,15 @@ export function FinanceProvider({ children, isAuthenticated }) {
         prev.map(a => a.id === data.accountId ? { ...a, balance: +(a.balance + delta).toFixed(2) } : a)
       );
     }
-  }, []);
+  }, [transactions]);
 
   const deleteTransaction = useCallback(async (id) => {
-    let tx, paired;
-    setTransactions(prev => {
-      tx = prev.find(t => t.id === id);
-      if (tx?.transferGroup) {
-        paired = prev.find(t => t.transferGroup === tx.transferGroup && t.id !== id);
-      }
-      const toRemove = new Set([id, paired?.id].filter(Boolean));
-      return prev.filter(t => !toRemove.has(t.id));
-    });
+    const tx = transactions.find(t => t.id === id);
+    const paired = tx?.transferGroup
+      ? transactions.find(t => t.transferGroup === tx.transferGroup && t.id !== id)
+      : undefined;
+    const toRemove = new Set([id, paired?.id].filter(Boolean));
+    setTransactions(prev => prev.filter(t => !toRemove.has(t.id)));
     try {
       await api.deleteTransaction(id);
     } catch (e) {
@@ -355,7 +346,7 @@ export function FinanceProvider({ children, isAuthenticated }) {
         );
       }
     }
-  }, []);
+  }, [transactions]);
 
   const addTransfer = useCallback(async (data) => {
     const result = await api.addTransfer(data);
@@ -479,15 +470,12 @@ export function FinanceProvider({ children, isAuthenticated }) {
   }, []);
 
   const updateGoal = useCallback(async (id, data) => {
-    let updated;
-    setGoals(prev => {
-      const current = prev.find(g => g.id === id);
-      updated = { ...current, ...data };
-      return prev.map(g => g.id === id ? updated : g);
-    });
+    const current = goals.find(g => g.id === id);
+    const updated = { ...current, ...data };
+    setGoals(prev => prev.map(g => g.id === id ? updated : g));
     try { await api.updateGoal(id, updated); }
     catch (e) { api.getGoals().then(setGoals).catch(() => {}); throw e; }
-  }, []);
+  }, [goals]);
 
   const deleteGoal = useCallback(async (id) => {
     setGoals(prev => prev.filter(g => g.id !== id));
@@ -509,15 +497,12 @@ export function FinanceProvider({ children, isAuthenticated }) {
   }, []);
 
   const updateDebt = useCallback(async (id, data) => {
-    let updated;
-    setDebts(prev => {
-      const current = prev.find(d => d.id === id);
-      updated = { ...current, ...data };
-      return prev.map(d => d.id === id ? updated : d);
-    });
+    const current = debts.find(d => d.id === id);
+    const updated = { ...current, ...data };
+    setDebts(prev => prev.map(d => d.id === id ? updated : d));
     try { await api.updateDebt(id, updated); }
     catch (e) { api.getDebts().then(setDebts).catch(() => {}); throw e; }
-  }, []);
+  }, [debts]);
 
   const deleteDebt = useCallback(async (id) => {
     setDebts(prev => prev.filter(d => d.id !== id));
@@ -549,15 +534,12 @@ export function FinanceProvider({ children, isAuthenticated }) {
   }, []);
 
   const updateLoan = useCallback(async (id, data) => {
-    let updated;
-    setLoans(prev => {
-      const current = prev.find(l => l.id === id);
-      updated = { ...current, ...data };
-      return prev.map(l => l.id === id ? updated : l);
-    });
+    const current = loans.find(l => l.id === id);
+    const updated = { ...current, ...data };
+    setLoans(prev => prev.map(l => l.id === id ? updated : l));
     try { await api.updateLoan(id, updated); }
     catch (e) { api.getLoans().then(setLoans).catch(() => {}); throw e; }
-  }, []);
+  }, [loans]);
 
   const deleteLoan = useCallback(async (id) => {
     setLoans(prev => prev.filter(l => l.id !== id));

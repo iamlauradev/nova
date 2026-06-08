@@ -34,7 +34,7 @@ services:
       - "traefik.http.routers.nova.rule=Host(`nova.iamlaura.dev`)"
       - "traefik.http.routers.nova.entrypoints=websecure"
       - "traefik.http.routers.nova.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.nova.middlewares=security-headers@file"
+      - "traefik.http.routers.nova.middlewares=security-headers@file,api-rate-limit@file"
       - "traefik.http.services.nova.loadbalancer.server.port=3000"
 
 networks:
