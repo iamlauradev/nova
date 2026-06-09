@@ -15,7 +15,7 @@ if (process.env.SENTRY_DSN) {
 
 const app = express();
 app.set('trust proxy', 1);
-app.use(cors({ origin: ['https://nova.iamlaura.dev', 'http://localhost:8081'] }));
+app.use(cors({ origin: ['https://nova.iamlaura.dev', 'https://novaweb.iamlaura.dev', 'http://localhost:8081', 'http://localhost:5173'] }));
 app.use(express.json());
 
 app.use((req, res, next) => {
@@ -28,6 +28,7 @@ app.use((req, res, next) => {
 });
 
 app.use('/auth',                  require('./routes/auth'));
+app.use('/auth',                  require('./routes/password-reset'));
 app.use('/api/accounts',          require('./routes/accounts'));
 app.use('/api/transactions',      require('./routes/transactions'));
 app.use('/api/recurring',         require('./routes/recurring'));
@@ -38,9 +39,14 @@ app.use('/api/goals',             require('./routes/goals'));
 app.use('/api/debts',             require('./routes/debts'));
 app.use('/api/loans',             require('./routes/loans'));
 app.use('/api/events',            require('./routes/events'));
+app.use('/admin',                 require('./routes/admin'));
 
 app.get('/health', (req, res) => {
   res.json({ ok: true, ts: new Date().toISOString() });
+});
+
+app.get('/', (req, res) => {
+  res.redirect(301, 'https://novaweb.iamlaura.dev');
 });
 
 if (process.env.SENTRY_DSN) {

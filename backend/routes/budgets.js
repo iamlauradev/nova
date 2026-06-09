@@ -15,7 +15,7 @@ router.post('/', auth, async (req, res) => {
     [req.user.id, categoryId]
   );
   if (existing) {
-    await db.execute(`UPDATE budgets SET amount=$1 WHERE id=$2 AND "userId"=$3`, [amount, existing.id, req.user.id]);
+    await db.execute(`UPDATE budgets SET amount=$1, period=$2 WHERE id=$3 AND "userId"=$4`, [amount, period ?? 'monthly', existing.id, req.user.id]);
   } else {
     await db.execute(
       `INSERT INTO budgets (id,"userId","categoryId",amount,period) VALUES ($1,$2,$3,$4,$5)`,

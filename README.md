@@ -1,6 +1,6 @@
 # Nova Finance
 
-A self-hosted personal finance tracker for Android. Built with React Native / Expo on the frontend and a Node.js + SQLite backend designed to run on a homelab or any small server.
+A self-hosted personal finance tracker. Available as an **Android APK** (React Native / Expo) and a **React web app** (`novaweb.iamlaura.dev`). The backend is Node.js + Express + SQLite, designed to run on a homelab or any small server.
 
 ## Features
 

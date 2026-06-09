@@ -135,16 +135,16 @@ router.post('/transfer', auth, async (req, res) => {
     [amount, fromAccountId, req.user.id]);
   await db.execute(
     `INSERT INTO transactions (id,"userId","accountId",type,amount,description,category,date,notes,"transferGroup")
-     VALUES ($1,$2,$3,'transfer-out',$4,$5,'transferencia',$6,'','')`,
-    [idOut, req.user.id, fromAccountId, amount, desc, date]
+     VALUES ($1,$2,$3,'transfer-out',$4,$5,'transferencia',$6,'',$7)`,
+    [idOut, req.user.id, fromAccountId, amount, desc, date, group]
   );
 
   await db.execute(`UPDATE accounts SET balance = ROUND(balance + $1, 2) WHERE id=$2 AND "userId"=$3`,
     [amount, toAccountId, req.user.id]);
   await db.execute(
     `INSERT INTO transactions (id,"userId","accountId",type,amount,description,category,date,notes,"transferGroup")
-     VALUES ($1,$2,$3,'transfer-in',$4,$5,'transferencia',$6,'','')`,
-    [idIn, req.user.id, toAccountId, amount, desc, date]
+     VALUES ($1,$2,$3,'transfer-in',$4,$5,'transferencia',$6,'',$7)`,
+    [idIn, req.user.id, toAccountId, amount, desc, date, group]
   );
 
   res.json({ ok: true, group });

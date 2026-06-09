@@ -8,10 +8,16 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       PORT: 3000
       NODE_ENV: production
+      APP_URL: https://novaweb.iamlaura.dev
       PG_HOST: shared_postgres
       PG_DATABASE: novadb
       PG_USER: nova
       PG_PASSWORD: ${PG_PASSWORD}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASSWORD: ${SMTP_PASSWORD}
+      SMTP_FROM_NAME: Nova
     networks:
       - homelab_net
     security_opt:
@@ -36,6 +42,37 @@ services:
       - "traefik.http.routers.nova.tls.certresolver=letsencrypt"
       - "traefik.http.routers.nova.middlewares=security-headers@file,api-rate-limit@file"
       - "traefik.http.services.nova.loadbalancer.server.port=3000"
+
+  nova_web:
+    build: ./web
+    container_name: nova_web
+    restart: unless-stopped
+    environment:
+      TZ: Europe/Madrid
+    networks:
+      - homelab_net
+    security_opt:
+      - no-new-privileges:true
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+          cpus: '0.1'
+        reservations:
+          memory: 16M
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:80/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.nova-web.rule=Host(`novaweb.iamlaura.dev`)"
+      - "traefik.http.routers.nova-web.entrypoints=websecure"
+      - "traefik.http.routers.nova-web.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.nova-web.middlewares=security-headers@file"
+      - "traefik.http.services.nova-web.loadbalancer.server.port=80"
 
 networks:
   homelab_net:
